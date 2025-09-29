@@ -1141,9 +1141,9 @@ async function performDynamicAction() {
                 const blockQuery = `
                     INSERT INTO bedrock_usage.user_blocking_status 
                     (user_id, is_blocked, blocked_reason, blocked_at, blocked_until, created_at)
-                    VALUES (?, 'Y', ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
-                    is_blocked = 'Y',
+                    is_blocked = VALUES(is_blocked),
                     blocked_reason = VALUES(blocked_reason),
                     blocked_at = VALUES(blocked_at),
                     blocked_until = VALUES(blocked_until)
