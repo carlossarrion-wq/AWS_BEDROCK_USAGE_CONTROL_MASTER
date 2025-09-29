@@ -457,7 +457,7 @@ async function performManualBlock() {
                         user_id: username,
                         action: 'block',
                         reason: reason,
-                        blocked_until: blockUntil,
+                        blocked_until: blockUntilCET,
                         performed_by: 'dashboard_admin'
                     })
                 });
@@ -1186,7 +1186,7 @@ async function performDynamicAction() {
                             user_id: username,
                             action: 'block',
                             reason: reason,
-                            blocked_until: blockUntil,
+                            blocked_until: blockUntilCET,
                             performed_by: 'dashboard_admin'
                         })
                     });
