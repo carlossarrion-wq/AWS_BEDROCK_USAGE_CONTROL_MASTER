@@ -1104,16 +1104,17 @@ def manual_block_user(event: Dict[str, Any]) -> Dict[str, Any]:
         user_id = event['user_id']
         reason = event.get('reason', 'Manual admin block')
         performed_by = event.get('performed_by', 'admin')
+        expires_at = event.get('expires_at')  # Custom expiration from dashboard
         
-        logger.info(f"🚫 Manual blocking user {user_id} by {performed_by}")
+        logger.info(f"🚫 Manual blocking user {user_id} by {performed_by}, expires_at: {expires_at}")
         
         connection = get_mysql_connection()
         
         # Get current usage from RDS
         usage_info = get_user_current_usage(connection, user_id)
         
-        # Execute blocking with admin expiration (24 hours)
-        success = execute_admin_blocking(connection, user_id, reason, performed_by, usage_info)
+        # Execute blocking with custom or default expiration
+        success = execute_admin_blocking(connection, user_id, reason, performed_by, usage_info, expires_at)
         
         return {
             'statusCode': 200 if success else 500,
@@ -1464,17 +1465,32 @@ def get_user_current_usage(connection, user_id: str) -> Dict[str, Any]:
             'administrative_safe': False
         }
 
-def execute_admin_blocking(connection, user_id: str, reason: str, performed_by: str, usage_info: Dict[str, Any]) -> bool:
-    """Execute admin blocking with 24-hour expiration"""
+def execute_admin_blocking(connection, user_id: str, reason: str, performed_by: str, usage_info: Dict[str, Any], expires_at: str = None) -> bool:
+    """Execute admin blocking with custom or default 24-hour expiration"""
     try:
         current_cet_time = get_current_cet_time()
         current_cet_string = get_cet_timestamp_string()
         
-        # Admin blocks expire in 24 hours, not at daily reset
-        blocked_until_cet = current_cet_time + timedelta(hours=24)
-        blocked_until_string = blocked_until_cet.strftime('%Y-%m-%d %H:%M:%S')
-        
-        logger.info(f"🚫 Admin blocking {user_id} until {blocked_until_string} CET")
+        # Use custom expiration if provided, otherwise default to 24 hours
+        if expires_at and expires_at != 'Indefinite':
+            try:
+                # Parse the expires_at ISO string and convert to CET
+                expires_utc = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+                blocked_until_cet = expires_utc.astimezone(CET)
+                blocked_until_string = blocked_until_cet.strftime('%Y-%m-%d %H:%M:%S')
+                logger.info(f"🚫 Admin blocking {user_id} until custom date {blocked_until_string} CET")
+            except Exception as e:
+                logger.error(f"Failed to parse custom expires_at '{expires_at}': {str(e)}, using 24-hour default")
+                blocked_until_cet = current_cet_time + timedelta(hours=24)
+                blocked_until_string = blocked_until_cet.strftime('%Y-%m-%d %H:%M:%S')
+        elif expires_at == 'Indefinite':
+            blocked_until_string = None
+            logger.info(f"🚫 Admin blocking {user_id} indefinitely")
+        else:
+            # Default to 24 hours for admin blocks
+            blocked_until_cet = current_cet_time + timedelta(hours=24)
+            blocked_until_string = blocked_until_cet.strftime('%Y-%m-%d %H:%M:%S')
+            logger.info(f"🚫 Admin blocking {user_id} until default 24h {blocked_until_string} CET")
         
         # Update blocking status with admin info - CORRECCIÓN: Use expected SQL structure
         with connection.cursor() as cursor:
