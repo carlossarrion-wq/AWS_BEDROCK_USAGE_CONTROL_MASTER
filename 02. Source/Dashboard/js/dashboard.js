@@ -3252,6 +3252,44 @@ function renderUserBlockingPage() {
             `;
         }
         
+        // Get blocking information from database
+        let blockedSince = '-';
+        let expires = '-';
+        
+        // Check if user has blocking data from mysql-data-service
+        if (window.mysqlDataService && window.mysqlDataService.cache && window.mysqlDataService.cache.userBlockingData) {
+            const blockingData = window.mysqlDataService.cache.userBlockingData.data;
+            const userBlockingInfo = blockingData.find(user => user.userId === userData.username);
+            
+            if (userBlockingInfo && userBlockingInfo.isBlocked === 'Y') {
+                // Format blocked_at timestamp
+                if (userBlockingInfo.blockedAt) {
+                    const blockedAtDate = new Date(userBlockingInfo.blockedAt);
+                    blockedSince = blockedAtDate.toLocaleString('en-GB', {
+                        day: '2-digit',
+                        month: '2-digit', 
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                }
+                
+                // Format blocked_until timestamp
+                if (userBlockingInfo.blockedUntil) {
+                    const blockedUntilDate = new Date(userBlockingInfo.blockedUntil);
+                    expires = blockedUntilDate.toLocaleString('en-GB', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric', 
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                } else {
+                    expires = 'Indefinite';
+                }
+            }
+        }
+        
         tableBody.innerHTML += `
             <tr>
                 <td>${userData.username}</td>
@@ -3261,7 +3299,8 @@ function renderUserBlockingPage() {
                 <td>${userData.dailyTotal}/${userData.dailyLimit}</td>
                 <td>${window.createPercentageIndicator(userData.dailyPercentage)}</td>
                 <td>${userData.monthlyTotal}/${userData.monthlyLimit}</td>
-                <td>${actionButtons}</td>
+                <td>${blockedSince}</td>
+                <td>${expires}</td>
             </tr>
         `;
     });
