@@ -1265,9 +1265,14 @@ function updateDynamicButton() {
         dynamicBtn.className = 'btn btn-select-user';
         dynamicBtn.textContent = 'Select user';
         dynamicBtn.disabled = true;
-        // Disable duration control when no user selected
-        blockDuration.disabled = true;
-        customDatetime.style.display = 'none';
+        // FIXED: Keep duration control enabled so table buttons can use the selected duration
+        blockDuration.disabled = false;
+        // Show custom datetime if custom is selected
+        if (blockDuration.value === 'custom') {
+            customDatetime.style.display = 'block';
+        } else {
+            customDatetime.style.display = 'none';
+        }
     } else {
         const isBlocked = userBlockingStatus[selectedUser] || false;
         
@@ -1276,7 +1281,7 @@ function updateDynamicButton() {
             dynamicBtn.className = 'btn btn-unblock-user';
             dynamicBtn.textContent = 'Unblock User';
             dynamicBtn.disabled = false;
-            // Disable duration control for blocked users
+            // Disable duration control for blocked users (unblocking doesn't need duration)
             blockDuration.disabled = true;
             customDatetime.style.display = 'none';
         } else {
@@ -1299,9 +1304,9 @@ function initializeBlockingControls() {
     const blockDuration = document.getElementById('block-duration');
     const customDatetime = document.getElementById('custom-datetime');
     
-    // Set default value to "1day" and disable control
+    // FIXED: Set default value to "1day" but keep control enabled for table buttons
     blockDuration.value = '1day';
-    blockDuration.disabled = true;
+    blockDuration.disabled = false;
     customDatetime.style.display = 'none';
 }
 
