@@ -928,6 +928,9 @@ async function performDynamicAction() {
     const duration = blockDuration.value;
     const reason = blockReason.value;
     
+    // DEBUG: Log the duration values
+    console.log(`🔧 DEBUG performDynamicAction: username=${username}, duration=${duration}, disabled=${blockDuration.disabled}`);
+    
     if (!username) {
         alert('Please select a user');
         return;
