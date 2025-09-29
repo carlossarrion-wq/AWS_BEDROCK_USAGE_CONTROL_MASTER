@@ -898,21 +898,34 @@ function handleDurationChange() {
 function calculateExpirationDate(duration) {
     const now = new Date();
     
+    // DEBUG: Log the input duration and calculation
+    console.log(`🔧 DEBUG calculateExpirationDate: input duration="${duration}"`);
+    
     switch (duration) {
         case '1day':
-            return new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+            const oneDayResult = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+            console.log(`🔧 DEBUG calculateExpirationDate: 1day result="${oneDayResult}"`);
+            return oneDayResult;
         case '30days':
-            return new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+            const thirtyDayResult = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+            console.log(`🔧 DEBUG calculateExpirationDate: 30days result="${thirtyDayResult}"`);
+            return thirtyDayResult;
         case '90days':
-            return new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString();
+            const ninetyDayResult = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString();
+            console.log(`🔧 DEBUG calculateExpirationDate: 90days result="${ninetyDayResult}"`);
+            return ninetyDayResult;
         case 'custom':
             const customDatetime = document.getElementById('custom-datetime');
             if (!customDatetime.value) {
+                console.log(`🔧 DEBUG calculateExpirationDate: custom with no value, returning null`);
                 return null;
             }
-            return new Date(customDatetime.value).toISOString();
+            const customResult = new Date(customDatetime.value).toISOString();
+            console.log(`🔧 DEBUG calculateExpirationDate: custom result="${customResult}"`);
+            return customResult;
         case 'indefinite':
         default:
+            console.log(`🔧 DEBUG calculateExpirationDate: indefinite/default case, returning "Indefinite"`);
             return 'Indefinite';
     }
 }
