@@ -392,6 +392,9 @@ async function performManualBlock() {
                 username, reason, cetTimestamp, blockUntilCET, dailyUsage
             });
             
+            console.log(`🔧 DEBUG performManualBlock: SQL Query:`, blockQuery);
+            console.log(`🔧 DEBUG performManualBlock: SQL Parameters:`, [username, reason, cetTimestamp, blockUntilCET, dailyUsage, cetTimestamp, cetTimestamp]);
+            
             await window.mysqlDataService.executeQuery(blockQuery, [username, reason, cetTimestamp, blockUntilCET, dailyUsage, cetTimestamp, cetTimestamp]);
             
             console.log(`🔧 DEBUG performManualBlock: Block query executed successfully`);
@@ -920,19 +923,29 @@ function calculateExpirationDate(duration) {
     
     // DEBUG: Log the input duration and calculation
     console.log(`🔧 DEBUG calculateExpirationDate: input duration="${duration}"`);
+    console.log(`🔧 DEBUG calculateExpirationDate: current time="${now.toISOString()}"`);
     
     switch (duration) {
         case '1day':
             const oneDayResult = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
             console.log(`🔧 DEBUG calculateExpirationDate: 1day result="${oneDayResult}"`);
+            console.log(`🔧 DEBUG calculateExpirationDate: 1day calculation: ${now.getTime()} + ${24 * 60 * 60 * 1000} = ${now.getTime() + 24 * 60 * 60 * 1000}`);
             return oneDayResult;
         case '30days':
             const thirtyDayResult = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
             console.log(`🔧 DEBUG calculateExpirationDate: 30days result="${thirtyDayResult}"`);
+            console.log(`🔧 DEBUG calculateExpirationDate: 30days calculation: ${now.getTime()} + ${30 * 24 * 60 * 60 * 1000} = ${now.getTime() + 30 * 24 * 60 * 60 * 1000}`);
             return thirtyDayResult;
         case '90days':
             const ninetyDayResult = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString();
             console.log(`🔧 DEBUG calculateExpirationDate: 90days result="${ninetyDayResult}"`);
+            console.log(`🔧 DEBUG calculateExpirationDate: 90days calculation: ${now.getTime()} + ${90 * 24 * 60 * 60 * 1000} = ${now.getTime() + 90 * 24 * 60 * 60 * 1000}`);
+            
+            // CRITICAL DEBUG: Let's manually verify the calculation
+            const manualCheck = new Date(now);
+            manualCheck.setDate(manualCheck.getDate() + 90);
+            console.log(`🔧 DEBUG calculateExpirationDate: 90days manual check using setDate: "${manualCheck.toISOString()}"`);
+            
             return ninetyDayResult;
         case 'custom':
             const customDatetime = document.getElementById('custom-datetime');
@@ -1152,6 +1165,9 @@ async function performDynamicAction() {
                 console.log(`🔧 DEBUG performDynamicAction BLOCK: Executing blockQuery with params:`, {
                     username, reason, currentCETString, blockUntilCET, currentCETString
                 });
+                
+                console.log(`🔧 DEBUG performDynamicAction BLOCK: SQL Query:`, blockQuery);
+                console.log(`🔧 DEBUG performDynamicAction BLOCK: SQL Parameters:`, [username, reason, currentCETString, blockUntilCET, currentCETString]);
                 
                 await window.mysqlDataService.executeQuery(blockQuery, [username, reason, currentCETString, blockUntilCET, currentCETString]);
                 
@@ -1376,6 +1392,8 @@ function getCurrentCETTimestamp() {
 
 // Helper function to convert a Date object to CET string for database storage
 function convertDateToCETString(date) {
+    console.log(`🔧 DEBUG convertDateToCETString: input date="${date.toISOString()}"`);
+    
     // Convert the date to CET timezone and format for MySQL
     const cetTime = new Intl.DateTimeFormat('sv-SE', {
         timeZone: 'Europe/Madrid',
@@ -1387,5 +1405,7 @@ function convertDateToCETString(date) {
         second: '2-digit'
     }).format(date);
     
-    return cetTime.replace('T', ' '); // MySQL datetime format: YYYY-MM-DD HH:MM:SS
+    const result = cetTime.replace('T', ' '); // MySQL datetime format: YYYY-MM-DD HH:MM:SS
+    console.log(`🔧 DEBUG convertDateToCETString: result="${result}"`);
+    return result;
 }
