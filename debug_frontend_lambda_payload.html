@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Frontend Lambda Payload</title>
+</head>
+<body>
+    <h1>Debug Frontend Lambda Payload</h1>
+    
+    <div>
+        <label>Duration:</label>
+        <select id="block-duration">
+            <option value="1day">1 Day</option>
+            <option value="30days">30 Days</option>
+            <option value="90days">90 Days</option>
+            <option value="indefinite">Indefinite</option>
+        </select>
+    </div>
+    
+    <button onclick="testPayloadConstruction()">Test Payload Construction</button>
+    
+    <div id="output"></div>
+    
+    <script>
+        function calculateExpirationDate(duration) {
+            const now = new Date();
+            
+            console.log(`🔧 DEBUG calculateExpirationDate: input duration="${duration}"`);
+            console.log(`🔧 DEBUG calculateExpirationDate: current time="${now.toISOString()}"`);
+            
+            switch (duration) {
+                case '1day':
+                    const oneDayResult = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+                    console.log(`🔧 DEBUG calculateExpirationDate: 1day result="${oneDayResult}"`);
+                    return oneDayResult;
+                case '30days':
+                    const thirtyDayResult = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+                    console.log(`🔧 DEBUG calculateExpirationDate: 30days result="${thirtyDayResult}"`);
+                    return thirtyDayResult;
+                case '90days':
+                    const ninetyDayResult = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString();
+                    console.log(`🔧 DEBUG calculateExpirationDate: 90days result="${ninetyDayResult}"`);
+                    return ninetyDayResult;
+                case 'indefinite':
+                default:
+                    console.log(`🔧 DEBUG calculateExpirationDate: indefinite/default case, returning "Indefinite"`);
+                    return 'Indefinite';
+            }
+        }
+        
+        function testPayloadConstruction() {
+            const duration = document.getElementById('block-duration').value;
+            const username = 'test_user';
+            const reason = 'Test blocking';
+            const dailyUsage = 100;
+            const dailyLimit = 350;
+            const userTeam = 'test_team';
+            
+            // Calculate expiration date
+            const expiresAt = calculateExpirationDate(duration);
+            
+            // Prepare Lambda payload for manual blocking
+            const lambdaPayload = {
+                action: 'block',
+                user_id: username,
+                reason: reason,
+                performed_by: 'dashboard_admin',
+                duration: duration,
+                expires_at: expiresAt,
+                usage_record: {
+                    request_count: dailyUsage,
+                    daily_limit: dailyLimit,
+                    team: userTeam,
+                    date: new Date().toISOString().split('T')[0]
+                }
+            };
+            
+            console.log(`🔧 DEBUG testPayloadConstruction: Lambda payload:`, lambdaPayload);
+            
+            // Show the payload that would be sent
+            const output = document.getElementById('output');
+            output.innerHTML = `
+                <h2>Lambda Payload:</h2>
+                <pre>${JSON.stringify(lambdaPayload, null, 2)}</pre>
+                
+                <h2>Serialized Payload:</h2>
+                <pre>${JSON.stringify(lambdaPayload)}</pre>
+                
+                <h2>Key Values:</h2>
+                <ul>
+                    <li><strong>Duration:</strong> ${duration}</li>
+                    <li><strong>Expires At:</strong> ${expiresAt}</li>
+                    <li><strong>Action:</strong> ${lambdaPayload.action}</li>
+                    <li><strong>User ID:</strong> ${lambdaPayload.user_id}</li>
+                </ul>
+            `;
+        }
+    </script>
+</body>
+</html>

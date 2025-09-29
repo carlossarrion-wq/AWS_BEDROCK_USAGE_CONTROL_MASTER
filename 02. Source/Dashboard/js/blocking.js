@@ -322,9 +322,14 @@ async function performManualBlock() {
     }
     
     try {
-        // Calculate expiration date
+        // Calculate expiration date with enhanced debugging
+        console.log(`🔧 DEBUG performManualBlock: About to calculate expiration for duration="${duration}"`);
+        console.log(`🔧 DEBUG performManualBlock: blockDuration element value="${blockDuration.value}"`);
+        console.log(`🔧 DEBUG performManualBlock: blockDuration element disabled="${blockDuration.disabled}"`);
+        
         const expiresAt = calculateExpirationDate(duration);
         console.log(`🔧 DEBUG performManualBlock: calculated expiresAt="${expiresAt}"`);
+        console.log(`🔧 DEBUG performManualBlock: typeof expiresAt="${typeof expiresAt}"`);
         
         if (duration === 'custom' && !expiresAt) {
             updateConnectionStatus('error', 'Please select a custom date and time');
@@ -383,6 +388,8 @@ async function performManualBlock() {
         };
         
         console.log(`🔧 DEBUG performManualBlock: Lambda payload:`, lambdaPayload);
+        console.log(`🔧 DEBUG performManualBlock: Lambda payload expires_at specifically:`, lambdaPayload.expires_at);
+        console.log(`🔧 DEBUG performManualBlock: JSON.stringify of payload:`, JSON.stringify(lambdaPayload));
         
         // Call the Lambda function API
         const lambda = new AWS.Lambda({ region: 'eu-west-1' });
