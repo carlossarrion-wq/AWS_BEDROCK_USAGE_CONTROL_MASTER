@@ -1173,6 +1173,31 @@ async function performDynamicAction() {
                 
                 console.log(`🔧 DEBUG performDynamicAction BLOCK: Block query executed successfully`);
                 
+                // CRITICAL DEBUG: Immediately query the database to see what was actually stored
+                const verifyQuery = `
+                    SELECT user_id, blocked_at, blocked_until, created_at
+                    FROM bedrock_usage.user_blocking_status 
+                    WHERE user_id = ?
+                `;
+                const verifyResult = await window.mysqlDataService.executeQuery(verifyQuery, [username]);
+                console.log(`🔍 DEBUG VERIFICATION: What was actually stored in database:`, verifyResult);
+                
+                if (verifyResult.length > 0) {
+                    const stored = verifyResult[0];
+                    console.log(`🔍 DEBUG VERIFICATION: Stored blocked_until="${stored.blocked_until}"`);
+                    console.log(`🔍 DEBUG VERIFICATION: Expected blockUntilCET="${blockUntilCET}"`);
+                    console.log(`🔍 DEBUG VERIFICATION: Match? ${stored.blocked_until === blockUntilCET}`);
+                    
+                    // Calculate the difference in days
+                    if (stored.blocked_until && stored.blocked_at) {
+                        const storedUntil = new Date(stored.blocked_until);
+                        const storedAt = new Date(stored.blocked_at);
+                        const diffMs = storedUntil.getTime() - storedAt.getTime();
+                        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+                        console.log(`🔍 DEBUG VERIFICATION: Actual duration stored in DB: ${diffDays} days`);
+                    }
+                }
+                
                 // Get current usage data for audit log - FIXED: Use same data source as Daily Usage tab
                 const fullDailyData = userMetrics[username]?.daily || Array(11).fill(0);
                 const dailyUsage = fullDailyData[10] || 0; // Index 10 is today (same as Daily Usage tab)
