@@ -1186,7 +1186,15 @@ async function performDynamicAction() {
                     const stored = verifyResult[0];
                     console.log(`🔍 DEBUG VERIFICATION: Stored blocked_until="${stored.blocked_until}"`);
                     console.log(`🔍 DEBUG VERIFICATION: Expected blockUntilCET="${blockUntilCET}"`);
-                    console.log(`🔍 DEBUG VERIFICATION: Match? ${stored.blocked_until === blockUntilCET}`);
+                    
+                    // Normalize both dates for comparison (handle T vs space separator)
+                    const storedNormalized = stored.blocked_until ? stored.blocked_until.replace('T', ' ').substring(0, 19) : null;
+                    const expectedNormalized = blockUntilCET ? blockUntilCET.substring(0, 19) : null;
+                    const datesMatch = storedNormalized === expectedNormalized;
+                    
+                    console.log(`🔍 DEBUG VERIFICATION: Normalized stored="${storedNormalized}"`);
+                    console.log(`🔍 DEBUG VERIFICATION: Normalized expected="${expectedNormalized}"`);
+                    console.log(`🔍 DEBUG VERIFICATION: Dates match? ${datesMatch}`);
                     
                     // Calculate the difference in days
                     if (stored.blocked_until && stored.blocked_at) {
@@ -1195,6 +1203,12 @@ async function performDynamicAction() {
                         const diffMs = storedUntil.getTime() - storedAt.getTime();
                         const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
                         console.log(`🔍 DEBUG VERIFICATION: Actual duration stored in DB: ${diffDays} days`);
+                        
+                        if (datesMatch) {
+                            console.log(`✅ SUCCESS: Blocking duration is working correctly! User blocked for ${diffDays} days as expected.`);
+                        } else {
+                            console.log(`❌ WARNING: Date format mismatch, but duration calculation shows ${diffDays} days`);
+                        }
                     }
                 }
                 
