@@ -1,0 +1,36 @@
+{
+  "account_id": "701055077130",
+  "region": "eu-west-1",
+  "temp_password": "TemporaryPassword123!",
+  "inference_profiles": {
+    "claude": "arn:aws:bedrock:eu-west-1:701055077130:inference-profile/eu.anthropic.claude-sonnet-4-20250514-v1:0",
+    "nova_pro": "arn:aws:bedrock:eu-west-1:701055077130:inference-profile/eu.amazon.nova-pro-v1:0",
+    "claude_37_sonnet": "arn:aws:bedrock:eu-west-1:701055077130:inference-profile/eu.anthropic.claude-3-7-sonnet-20250219-v1:0"
+  },
+  "cloudwatch": {
+    "user_log_group": "/aws/bedrock/user_usage",
+    "team_log_group": "/aws/bedrock/team_usage",
+    "metric_namespace": "UserMetrics"
+  },
+  "sns": {
+    "topic_name": "bedrock-usage-alerts",
+    "admin_email": "admin@example.com"
+  },
+  "default_quotas": {
+    "user": {
+      "monthly_limit": 1000,
+      "daily_limit": 50,
+      "warning_threshold": 60,
+      "critical_threshold": 85
+    },
+    "team": {
+      "monthly_limit": 5000,
+      "warning_threshold": 60,
+      "critical_threshold": 85
+    },
+    "tool": {
+      "monthly_limit": 800,
+      "daily_limit": 40
+    }
+  }
+}

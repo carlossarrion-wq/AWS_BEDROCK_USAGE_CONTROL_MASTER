@@ -1,0 +1,562 @@
+{
+  "iam_roles": {
+    "bedrock-usage-monitor-role": {
+      "description": "Execution role for the usage monitoring Lambda function",
+      "assume_role_policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "lambda.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "attached_policies": [
+        "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+        "arn:aws:iam::701055077130:policy/BedrockUsageMonitorPolicy"
+      ],
+      "creation_command": "aws iam create-role --role-name bedrock-usage-monitor-role --assume-role-policy-document file://bedrock-usage-monitor-trust-policy.json"
+    },
+    "bedrock-policy-manager-role": {
+      "description": "Execution role for the policy management Lambda function",
+      "assume_role_policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "lambda.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "attached_policies": [
+        "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+        "arn:aws:iam::701055077130:policy/BedrockPolicyManagerPolicy"
+      ],
+      "creation_command": "aws iam create-role --role-name bedrock-policy-manager-role --assume-role-policy-document file://bedrock-policy-manager-trust-policy.json"
+    },
+    "bedrock-dashboard-access-role": {
+      "description": "Role for dashboard access to AWS resources",
+      "assume_role_policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": "arn:aws:iam::701055077130:root"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "attached_policies": [
+        "arn:aws:iam::701055077130:policy/BedrockDashboardAccessPolicy"
+      ],
+      "creation_command": "aws iam create-role --role-name bedrock-dashboard-access-role --assume-role-policy-document file://bedrock-dashboard-access-trust-policy.json"
+    },
+    "bedrock-realtime-usage-controller-role": {
+      "description": "Execution role for the realtime usage controller Lambda function (UPDATED 2025-09-23)",
+      "assume_role_policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "lambda.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "attached_policies": [
+        "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+        "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+      ],
+      "inline_policies": [
+        "BedrockRealtimeUsageControllerPolicy"
+      ],
+      "creation_command": "aws iam create-role --role-name bedrock-realtime-usage-controller-role --assume-role-policy-document file://bedrock-realtime-usage-controller-trust-policy.json",
+      "policy_fix_applied": "2025-09-23",
+      "policy_fix_description": "Added missing IAM inline policy permissions: iam:GetUserPolicy, iam:PutUserPolicy, iam:DeleteUserPolicy, iam:ListUserPolicies"
+    }
+  },
+  "iam_policies": {
+    "BedrockUsageMonitorPolicy": {
+      "description": "Permissions for usage monitoring Lambda function",
+      "policy_document": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "DynamoDBAccess",
+            "Effect": "Allow",
+            "Action": [
+              "dynamodb:GetItem",
+              "dynamodb:PutItem",
+              "dynamodb:UpdateItem",
+              "dynamodb:Query",
+              "dynamodb:Scan"
+            ],
+            "Resource": [
+              "arn:aws:dynamodb:*:*:table/bedrock_user_daily_usage",
+              "arn:aws:dynamodb:*:*:table/bedrock_blocking_operations",
+              "arn:aws:dynamodb:*:*:table/bedrock_blocking_operations/index/*"
+            ]
+          },
+          {
+            "Sid": "IAMReadAccess",
+            "Effect": "Allow",
+            "Action": [
+              "iam:ListUserTags",
+              "iam:GetUser"
+            ],
+            "Resource": "*"
+          },
+          {
+            "Sid": "SNSPublishAccess",
+            "Effect": "Allow",
+            "Action": [
+              "sns:Publish"
+            ],
+            "Resource": "arn:aws:sns:*:*:bedrock-usage-alerts"
+          },
+          {
+            "Sid": "SESEmailAccess",
+            "Effect": "Allow",
+            "Action": [
+              "ses:SendEmail",
+              "ses:SendRawEmail"
+            ],
+            "Resource": "*"
+          },
+          {
+            "Sid": "LambdaInvokeAccess",
+            "Effect": "Allow",
+            "Action": [
+              "lambda:InvokeFunction"
+            ],
+            "Resource": "arn:aws:lambda:*:*:function:bedrock-policy-manager-enhanced"
+          },
+          {
+            "Sid": "SecretsManagerAccess",
+            "Effect": "Allow",
+            "Action": [
+              "secretsmanager:GetSecretValue"
+            ],
+            "Resource": "arn:aws:secretsmanager:*:*:secret:bedrock-usage-db-credentials-*"
+          },
+          {
+            "Sid": "RDSConnectAccess",
+            "Effect": "Allow",
+            "Action": [
+              "rds-db:connect"
+            ],
+            "Resource": "arn:aws:rds-db:*:*:dbuser:bedrock-usage-db/admin"
+          }
+        ]
+      },
+      "creation_command": "aws iam create-policy --policy-name BedrockUsageMonitorPolicy --policy-document file://bedrock-usage-monitor-policy.json"
+    },
+    "BedrockPolicyManagerPolicy": {
+      "description": "Permissions for policy management Lambda function",
+      "policy_document": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "DynamoDBAccess",
+            "Effect": "Allow",
+            "Action": [
+              "dynamodb:GetItem",
+              "dynamodb:PutItem",
+              "dynamodb:UpdateItem",
+              "dynamodb:Query"
+            ],
+            "Resource": [
+              "arn:aws:dynamodb:*:*:table/bedrock_user_daily_usage",
+              "arn:aws:dynamodb:*:*:table/bedrock_blocking_operations"
+            ]
+          },
+          {
+            "Sid": "IAMPolicyManagement",
+            "Effect": "Allow",
+            "Action": [
+              "iam:GetUser",
+              "iam:ListAttachedUserPolicies",
+              "iam:AttachUserPolicy",
+              "iam:DetachUserPolicy",
+              "iam:CreatePolicy",
+              "iam:GetPolicy",
+              "iam:CreatePolicyVersion",
+              "iam:DeletePolicyVersion",
+              "iam:ListPolicyVersions"
+            ],
+            "Resource": "*"
+          },
+          {
+            "Sid": "SNSPublishAccess",
+            "Effect": "Allow",
+            "Action": [
+              "sns:Publish"
+            ],
+            "Resource": "arn:aws:sns:*:*:bedrock-usage-alerts"
+          }
+        ]
+      },
+      "creation_command": "aws iam create-policy --policy-name BedrockPolicyManagerPolicy --policy-document file://bedrock-policy-manager-policy.json"
+    },
+    "BedrockDashboardAccessPolicy": {
+      "description": "Permissions for dashboard access",
+      "policy_document": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "LambdaInvokeAccess",
+            "Effect": "Allow",
+            "Action": [
+              "lambda:InvokeFunction"
+            ],
+            "Resource": [
+              "arn:aws:lambda:*:*:function:bedrock-usage-monitor-enhanced",
+              "arn:aws:lambda:*:*:function:bedrock-policy-manager-enhanced",
+              "arn:aws:lambda:*:*:function:bedrock-blocking-history"
+            ]
+          },
+          {
+            "Sid": "DynamoDBReadAccess",
+            "Effect": "Allow",
+            "Action": [
+              "dynamodb:Query",
+              "dynamodb:Scan"
+            ],
+            "Resource": [
+              "arn:aws:dynamodb:*:*:table/bedrock_user_daily_usage",
+              "arn:aws:dynamodb:*:*:table/bedrock_blocking_operations"
+            ]
+          },
+          {
+            "Sid": "RDSDescribeAccess",
+            "Effect": "Allow",
+            "Action": [
+              "rds:DescribeDBInstances"
+            ],
+            "Resource": "*"
+          }
+        ]
+      },
+      "creation_command": "aws iam create-policy --policy-name BedrockDashboardAccessPolicy --policy-document file://bedrock-dashboard-access-policy.json"
+    }
+  },
+  "user_policies": {
+    "standard_user_bedrock_policy": {
+      "description": "Standard Bedrock access policy for individual users",
+      "policy_template": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "BedrockInvokeAccess",
+            "Effect": "Allow",
+            "Action": [
+              "bedrock:InvokeModel",
+              "bedrock:InvokeModelWithResponseStream"
+            ],
+            "Resource": [
+              "arn:aws:bedrock:eu-west-1:701055077130:inference-profile/eu.anthropic.claude-*",
+              "arn:aws:bedrock:eu-west-1:701055077130:inference-profile/eu.amazon.nova-*"
+            ]
+          }
+        ]
+      },
+      "naming_convention": "{username}_BedrockPolicy",
+      "creation_command": "aws iam create-policy --policy-name {username}_BedrockPolicy --policy-document file://user-bedrock-policy.json"
+    },
+    "blocked_user_bedrock_policy": {
+      "description": "Blocked Bedrock access policy (denies all Bedrock actions)",
+      "policy_template": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "BedrockDenyAccess",
+            "Effect": "Deny",
+            "Action": [
+              "bedrock:*"
+            ],
+            "Resource": "*"
+          }
+        ]
+      },
+      "naming_convention": "{username}_BedrockPolicy_BLOCKED",
+      "creation_command": "aws iam create-policy --policy-name {username}_BedrockPolicy_BLOCKED --policy-document file://blocked-user-bedrock-policy.json"
+    },
+    "tool_specific_policy": {
+      "description": "Tool-specific access policy for users",
+      "policy_template": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "BedrockToolAccess",
+            "Effect": "Allow",
+            "Action": [
+              "bedrock:InvokeModel",
+              "bedrock:InvokeModelWithResponseStream"
+            ],
+            "Resource": [
+              "arn:aws:bedrock:eu-west-1:701055077130:inference-profile/eu.anthropic.claude-*",
+              "arn:aws:bedrock:eu-west-1:701055077130:inference-profile/eu.amazon.nova-*"
+            ],
+            "Condition": {
+              "StringEquals": {
+                "aws:RequestedRegion": "eu-west-1"
+              }
+            }
+          }
+        ]
+      },
+      "naming_convention": "{username}_{tool_name}_Policy",
+      "creation_command": "aws iam create-policy --policy-name {username}_{tool_name}_Policy --policy-document file://tool-specific-policy.json"
+    }
+  },
+  "group_policies": {
+    "team_bedrock_policy": {
+      "description": "Team-level Bedrock access policy",
+      "policy_template": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "BedrockTeamAccess",
+            "Effect": "Allow",
+            "Action": [
+              "bedrock:InvokeModel",
+              "bedrock:InvokeModelWithResponseStream"
+            ],
+            "Resource": [
+              "arn:aws:bedrock:eu-west-1:701055077130:inference-profile/eu.anthropic.claude-*",
+              "arn:aws:bedrock:eu-west-1:701055077130:inference-profile/eu.amazon.nova-*"
+            ]
+          },
+          {
+            "Sid": "CloudWatchLogsAccess",
+            "Effect": "Allow",
+            "Action": [
+              "logs:CreateLogGroup",
+              "logs:CreateLogStream",
+              "logs:PutLogEvents"
+            ],
+            "Resource": "arn:aws:logs:*:*:log-group:/aws/bedrock/*"
+          }
+        ]
+      },
+      "naming_convention": "{team_name}_BedrockPolicy",
+      "creation_command": "aws iam create-policy --policy-name {team_name}_BedrockPolicy --policy-document file://team-bedrock-policy.json"
+    },
+    "team_assume_role_policy": {
+      "description": "Policy allowing team members to assume team role",
+      "policy_template": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "AssumeTeamRole",
+            "Effect": "Allow",
+            "Action": [
+              "sts:AssumeRole"
+            ],
+            "Resource": "arn:aws:iam::701055077130:role/{team_name}_BedrockRole"
+          }
+        ]
+      },
+      "naming_convention": "{team_name}_AssumeRolePolicy",
+      "creation_command": "aws iam create-policy --policy-name {team_name}_AssumeRolePolicy --policy-document file://team-assume-role-policy.json"
+    }
+  },
+  "supported_teams": {
+    "team_darwin_group": {
+      "description": "Darwin team group",
+      "monthly_limit": 25000,
+      "default_user_daily_limit": 150,
+      "default_user_monthly_limit": 3500
+    },
+    "team_sap_group": {
+      "description": "SAP team group",
+      "monthly_limit": 30000,
+      "default_user_daily_limit": 250,
+      "default_user_monthly_limit": 5000
+    },
+    "team_mulesoft_group": {
+      "description": "MuleSoft team group",
+      "monthly_limit": 20000,
+      "default_user_daily_limit": 200,
+      "default_user_monthly_limit": 4000
+    },
+    "team_yo_leo_gas_group": {
+      "description": "Yo Leo Gas team group",
+      "monthly_limit": 15000,
+      "default_user_daily_limit": 100,
+      "default_user_monthly_limit": 2500
+    },
+    "team_lcorp_group": {
+      "description": "LCorp team group",
+      "monthly_limit": 35000,
+      "default_user_daily_limit": 300,
+      "default_user_monthly_limit": 6000
+    }
+  },
+  "deployment_scripts": {
+    "create_all_iam_resources": {
+      "description": "Script to create all IAM resources",
+      "script_path": "Project documents/Installation Manual/scripts/create_iam_resources.sh",
+      "commands": [
+        "# Create trust policy documents",
+        "echo '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}' > bedrock-usage-monitor-trust-policy.json",
+        "echo '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}' > bedrock-policy-manager-trust-policy.json",
+        "echo '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::701055077130:root\"},\"Action\":\"sts:AssumeRole\"}]}' > bedrock-dashboard-access-trust-policy.json",
+        "",
+        "# Create roles",
+        "aws iam create-role --role-name bedrock-usage-monitor-role --assume-role-policy-document file://bedrock-usage-monitor-trust-policy.json",
+        "aws iam create-role --role-name bedrock-policy-manager-role --assume-role-policy-document file://bedrock-policy-manager-trust-policy.json",
+        "aws iam create-role --role-name bedrock-dashboard-access-role --assume-role-policy-document file://bedrock-dashboard-access-trust-policy.json",
+        "",
+        "# Create custom policies",
+        "aws iam create-policy --policy-name BedrockUsageMonitorPolicy --policy-document file://bedrock-usage-monitor-policy.json",
+        "aws iam create-policy --policy-name BedrockPolicyManagerPolicy --policy-document file://bedrock-policy-manager-policy.json",
+        "aws iam create-policy --policy-name BedrockDashboardAccessPolicy --policy-document file://bedrock-dashboard-access-policy.json",
+        "",
+        "# Attach policies to roles",
+        "aws iam attach-role-policy --role-name bedrock-usage-monitor-role --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+        "aws iam attach-role-policy --role-name bedrock-usage-monitor-role --policy-arn arn:aws:iam::$AWS_ACCOUNT_ID:policy/BedrockUsageMonitorPolicy",
+        "aws iam attach-role-policy --role-name bedrock-policy-manager-role --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+        "aws iam attach-role-policy --role-name bedrock-policy-manager-role --policy-arn arn:aws:iam::$AWS_ACCOUNT_ID:policy/BedrockPolicyManagerPolicy",
+        "aws iam attach-role-policy --role-name bedrock-dashboard-access-role --policy-arn arn:aws:iam::$AWS_ACCOUNT_ID:policy/BedrockDashboardAccessPolicy"
+      ]
+    },
+    "create_user_with_policies": {
+      "description": "Script to create a user with all necessary policies",
+      "script_path": "Project documents/Installation Manual/scripts/create_user.sh",
+      "parameters": [
+        "USERNAME",
+        "PERSON_NAME",
+        "TEAM_NAME"
+      ],
+      "commands": [
+        "# Create IAM user",
+        "aws iam create-user --user-name $USERNAME",
+        "",
+        "# Create login profile",
+        "aws iam create-login-profile --user-name $USERNAME --password TemporaryPassword123! --password-reset-required",
+        "",
+        "# Add user to team group",
+        "aws iam add-user-to-group --user-name $USERNAME --group-name $TEAM_NAME",
+        "",
+        "# Create user-specific Bedrock policy",
+        "cat > ${USERNAME}_bedrock_policy.json << EOF",
+        "{",
+        "  \"Version\": \"2012-10-17\",",
+        "  \"Statement\": [",
+        "    {",
+        "      \"Effect\": \"Allow\",",
+        "      \"Action\": [",
+        "        \"bedrock:InvokeModel\",",
+        "        \"bedrock:InvokeModelWithResponseStream\"",
+        "      ],",
+        "      \"Resource\": [",
+        "        \"arn:aws:bedrock:eu-west-1:701055077130:inference-profile/eu.anthropic.claude-*\",",
+        "        \"arn:aws:bedrock:eu-west-1:701055077130:inference-profile/eu.amazon.nova-*\"",
+        "      ]",
+        "    }",
+        "  ]",
+        "}",
+        "EOF",
+        "",
+        "# Create and attach user policy",
+        "aws iam create-policy --policy-name ${USERNAME}_BedrockPolicy --policy-document file://${USERNAME}_bedrock_policy.json",
+        "aws iam attach-user-policy --user-name $USERNAME --policy-arn arn:aws:iam::$AWS_ACCOUNT_ID:policy/${USERNAME}_BedrockPolicy",
+        "",
+        "# Attach CloudWatch Logs policy",
+        "aws iam attach-user-policy --user-name $USERNAME --policy-arn arn:aws:iam::aws:policy/CloudWatchLogsFullAccess",
+        "",
+        "# Tag user",
+        "aws iam tag-user --user-name $USERNAME --tags Key=Person,Value=\"$PERSON_NAME\" Key=Team,Value=\"$TEAM_NAME\""
+      ]
+    }
+  },
+  "policy_management": {
+    "blocking_mechanism": {
+      "description": "How user blocking is implemented through IAM policies",
+      "process": [
+        "1. User exceeds daily limit",
+        "2. Policy Manager Lambda is invoked",
+        "3. Current user policy is retrieved",
+        "4. Policy is modified to deny all Bedrock actions",
+        "5. New policy version is created and set as default",
+        "6. User is effectively blocked from Bedrock access"
+      ],
+      "unblocking_process": [
+        "1. Admin initiates unblock (manual or automatic)",
+        "2. Policy Manager Lambda is invoked with unblock action",
+        "3. Blocked policy version is deleted",
+        "4. Original policy version is restored",
+        "5. Administrative protection flag is set (if manual unblock)",
+        "6. User regains Bedrock access"
+      ]
+    },
+    "policy_versioning": {
+      "description": "How policy versions are managed for blocking/unblocking",
+      "version_strategy": {
+        "v1": "Original policy with Bedrock access",
+        "v2": "Blocked policy with Bedrock access denied",
+        "default": "Points to active version (v1 for unblocked, v2 for blocked)"
+      },
+      "cleanup_strategy": "Old policy versions are automatically cleaned up after 30 days"
+    }
+  },
+  "security_considerations": {
+    "principle_of_least_privilege": {
+      "description": "All policies follow the principle of least privilege",
+      "implementation": [
+        "Lambda functions have minimal required permissions",
+        "Users only have access to specific Bedrock models",
+        "Dashboard role has read-only access where possible",
+        "Database access is restricted to specific functions"
+      ]
+    },
+    "policy_boundaries": {
+      "description": "Permission boundaries to prevent privilege escalation",
+      "recommendation": "Consider implementing permission boundaries for user policies to prevent privilege escalation"
+    },
+    "cross_account_access": {
+      "description": "Considerations for cross-account deployments",
+      "notes": [
+        "Update account IDs in all policy documents",
+        "Ensure proper trust relationships for cross-account roles",
+        "Consider using AWS Organizations for centralized management"
+      ]
+    }
+  },
+  "monitoring_and_auditing": {
+    "cloudtrail_events": {
+      "description": "CloudTrail events to monitor for IAM changes",
+      "events_to_monitor": [
+        "CreatePolicy",
+        "DeletePolicy",
+        "CreatePolicyVersion",
+        "DeletePolicyVersion",
+        "AttachUserPolicy",
+        "DetachUserPolicy",
+        "CreateRole",
+        "DeleteRole",
+        "AssumeRole"
+      ]
+    },
+    "cloudwatch_metrics": {
+      "description": "Custom metrics for IAM policy management",
+      "metrics": [
+        "PolicyModifications",
+        "UserBlocking",
+        "UserUnblocking",
+        "PolicyErrors"
+      ]
+    }
+  }
+}

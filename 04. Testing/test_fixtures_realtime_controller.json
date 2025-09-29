@@ -1,0 +1,437 @@
+{
+  "cloudtrail_events": {
+    "valid_invoke_model": {
+      "eventName": "InvokeModel",
+      "eventTime": "2024-01-15T10:30:00Z",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::123456789012:user/test-user",
+        "userName": "test-user"
+      },
+      "requestParameters": {
+        "modelId": "anthropic.claude-3-5-sonnet-20240620-v1:0"
+      },
+      "sourceIPAddress": "192.168.1.100",
+      "userAgent": "aws-cli/2.0.0",
+      "requestID": "test-request-id-123",
+      "awsRegion": "eu-west-1"
+    },
+    "invoke_model_with_arn": {
+      "eventName": "InvokeModel",
+      "eventTime": "2024-01-15T14:45:00Z",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::123456789012:user/power-user",
+        "userName": "power-user"
+      },
+      "requestParameters": {
+        "modelId": "arn:aws:bedrock:eu-west-1:123456789012:foundation-model/eu.anthropic.claude-sonnet-4-20250514-v1:0"
+      },
+      "sourceIPAddress": "10.0.1.50",
+      "userAgent": "boto3/1.26.0",
+      "requestID": "test-request-id-456",
+      "awsRegion": "eu-west-1"
+    },
+    "invoke_model_stream": {
+      "eventName": "InvokeModelWithResponseStream",
+      "eventTime": "2024-01-15T16:20:00Z",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::123456789012:user/stream-user",
+        "userName": "stream-user"
+      },
+      "requestParameters": {
+        "modelId": "anthropic.claude-3-haiku-20240307-v1:0"
+      },
+      "sourceIPAddress": "172.16.0.100",
+      "userAgent": "aws-sdk-python/1.26.0",
+      "requestID": "test-request-id-789",
+      "awsRegion": "us-east-1"
+    },
+    "converse_api": {
+      "eventName": "Converse",
+      "eventTime": "2024-01-15T18:10:00Z",
+      "userIdentity": {
+        "type": "AssumedRole",
+        "arn": "arn:aws:sts::123456789012:assumed-role/BedrockRole/session-user",
+        "userName": "session-user"
+      },
+      "requestParameters": {
+        "modelId": "amazon.titan-text-express-v1"
+      },
+      "sourceIPAddress": "203.0.113.10",
+      "userAgent": "custom-app/1.0.0",
+      "requestID": "test-request-id-abc",
+      "awsRegion": "us-west-2"
+    },
+    "invalid_missing_user": {
+      "eventName": "InvokeModel",
+      "eventTime": "2024-01-15T20:00:00Z",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "",
+        "userName": ""
+      },
+      "requestParameters": {
+        "modelId": "anthropic.claude-3-opus-20240229-v1:0"
+      },
+      "sourceIPAddress": "192.168.1.200",
+      "userAgent": "test-client/1.0",
+      "requestID": "test-request-id-invalid",
+      "awsRegion": "eu-west-1"
+    },
+    "invalid_missing_model": {
+      "eventName": "InvokeModel",
+      "eventTime": "2024-01-15T21:30:00Z",
+      "userIdentity": {
+        "type": "IAMUser",
+        "arn": "arn:aws:iam::123456789012:user/test-user-2",
+        "userName": "test-user-2"
+      },
+      "requestParameters": {},
+      "sourceIPAddress": "192.168.1.201",
+      "userAgent": "test-client/1.0",
+      "requestID": "test-request-id-no-model",
+      "awsRegion": "eu-west-1"
+    }
+  },
+  "api_events": {
+    "manual_block": {
+      "action": "block",
+      "user_id": "test-user",
+      "reason": "Manual admin block for policy violation",
+      "performed_by": "admin-user"
+    },
+    "manual_unblock": {
+      "action": "unblock",
+      "user_id": "test-user",
+      "reason": "Manual admin unblock after review",
+      "performed_by": "admin-user"
+    },
+    "check_status": {
+      "action": "check_status",
+      "user_id": "test-user"
+    },
+    "emergency_block": {
+      "action": "block",
+      "user_id": "emergency-user",
+      "reason": "Emergency block due to suspicious activity",
+      "performed_by": "security-admin"
+    },
+    "invalid_missing_action": {
+      "user_id": "test-user",
+      "reason": "Missing action parameter"
+    },
+    "invalid_missing_user": {
+      "action": "block",
+      "reason": "Missing user_id parameter"
+    },
+    "invalid_action": {
+      "action": "invalid_action",
+      "user_id": "test-user",
+      "reason": "Invalid action type"
+    }
+  },
+  "usage_scenarios": {
+    "normal_usage": {
+      "daily_requests_used": 150,
+      "monthly_requests_used": 1200,
+      "daily_percent": 42.9,
+      "monthly_percent": 24.0,
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "administrative_safe": false
+    },
+    "approaching_daily_limit": {
+      "daily_requests_used": 320,
+      "monthly_requests_used": 2800,
+      "daily_percent": 91.4,
+      "monthly_percent": 56.0,
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "administrative_safe": false
+    },
+    "exceeded_daily_limit": {
+      "daily_requests_used": 351,
+      "monthly_requests_used": 3200,
+      "daily_percent": 100.3,
+      "monthly_percent": 64.0,
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "administrative_safe": false
+    },
+    "exceeded_monthly_limit": {
+      "daily_requests_used": 280,
+      "monthly_requests_used": 5001,
+      "daily_percent": 80.0,
+      "monthly_percent": 100.02,
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "administrative_safe": false
+    },
+    "admin_protected_user": {
+      "daily_requests_used": 400,
+      "monthly_requests_used": 6000,
+      "daily_percent": 114.3,
+      "monthly_percent": 120.0,
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "administrative_safe": true
+    },
+    "high_usage_user": {
+      "daily_requests_used": 500,
+      "monthly_requests_used": 8000,
+      "daily_percent": 142.9,
+      "monthly_percent": 160.0,
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "administrative_safe": false
+    }
+  },
+  "database_responses": {
+    "user_limits_default": {
+      "daily_request_limit": 350,
+      "monthly_request_limit": 5000,
+      "administrative_safe": "N"
+    },
+    "user_limits_admin_safe": {
+      "daily_request_limit": 350,
+      "monthly_request_limit": 5000,
+      "administrative_safe": "Y"
+    },
+    "user_limits_high_tier": {
+      "daily_request_limit": 1000,
+      "monthly_request_limit": 15000,
+      "administrative_safe": "N"
+    },
+    "blocking_status_active": {
+      "is_blocked": "Y",
+      "blocked_reason": "Daily limit exceeded",
+      "blocked_at": "2024-01-15 12:00:00",
+      "blocked_until": "2024-01-16 00:00:00",
+      "performed_by": "system",
+      "block_type": "AUTO"
+    },
+    "blocking_status_manual": {
+      "is_blocked": "Y",
+      "blocked_reason": "Manual admin block",
+      "blocked_at": "2024-01-15 14:30:00",
+      "blocked_until": "2024-01-16 14:30:00",
+      "performed_by": "admin-user",
+      "block_type": "ADMIN"
+    },
+    "blocking_status_inactive": {
+      "is_blocked": "N",
+      "blocked_reason": null,
+      "blocked_at": null,
+      "blocked_until": null,
+      "performed_by": null,
+      "block_type": null
+    }
+  },
+  "iam_responses": {
+    "user_tags_complete": {
+      "Tags": [
+        {"Key": "Team", "Value": "yo_leo_engineering"},
+        {"Key": "Person", "Value": "John Doe"},
+        {"Key": "Email", "Value": "john.doe@example.com"},
+        {"Key": "Department", "Value": "Engineering"}
+      ]
+    },
+    "user_tags_minimal": {
+      "Tags": [
+        {"Key": "Team", "Value": "yo_leo_data_science"},
+        {"Key": "Email", "Value": "data.scientist@example.com"}
+      ]
+    },
+    "user_tags_empty": {
+      "Tags": []
+    },
+    "user_groups": {
+      "Groups": [
+        {"GroupName": "yo_leo_engineering"},
+        {"GroupName": "bedrock_users"},
+        {"GroupName": "general_access"}
+      ]
+    },
+    "existing_policy": {
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "BedrockAccess",
+            "Effect": "Allow",
+            "Action": [
+              "bedrock:InvokeModel",
+              "bedrock:InvokeModelWithResponseStream"
+            ],
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    "policy_with_deny": {
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "DailyLimitBlock",
+            "Effect": "Deny",
+            "Action": [
+              "bedrock:InvokeModel",
+              "bedrock:InvokeModelWithResponseStream"
+            ],
+            "Resource": "*",
+            "Condition": {
+              "StringEquals": {
+                "aws:username": "test-user"
+              }
+            }
+          },
+          {
+            "Sid": "BedrockAccess",
+            "Effect": "Allow",
+            "Action": [
+              "bedrock:InvokeModel",
+              "bedrock:InvokeModelWithResponseStream"
+            ],
+            "Resource": "*"
+          }
+        ]
+      }
+    }
+  },
+  "email_responses": {
+    "enhanced_service_success": {
+      "statusCode": 200,
+      "body": {
+        "message": "Email sent successfully",
+        "email_id": "test-email-123",
+        "timestamp": "2024-01-15T12:00:00Z"
+      }
+    },
+    "enhanced_service_failure": {
+      "statusCode": 500,
+      "body": {
+        "error": "Failed to send email",
+        "details": "SMTP connection failed"
+      }
+    },
+    "gmail_config": {
+      "server": "smtp.gmail.com",
+      "port": 587,
+      "user": "cline.aws.noreply@gmail.com",
+      "password": "lozs wwqa vfpn nlup",
+      "use_tls": true
+    }
+  },
+  "environment_variables": {
+    "test_environment": {
+      "RDS_ENDPOINT": "test-rds-endpoint.amazonaws.com",
+      "RDS_USERNAME": "test_user",
+      "RDS_PASSWORD": "test_password",
+      "RDS_DATABASE": "test_bedrock_usage",
+      "SNS_TOPIC_ARN": "arn:aws:sns:eu-west-1:123456789012:test-topic",
+      "EMAIL_SERVICE_LAMBDA_NAME": "test-bedrock-email-service",
+      "EMAIL_NOTIFICATIONS_ENABLED": "true"
+    },
+    "production_like": {
+      "RDS_ENDPOINT": "prod-bedrock-usage.cluster-xyz.eu-west-1.rds.amazonaws.com",
+      "RDS_USERNAME": "bedrock_app",
+      "RDS_PASSWORD": "secure_password_123",
+      "RDS_DATABASE": "bedrock_usage_control",
+      "SNS_TOPIC_ARN": "arn:aws:sns:eu-west-1:701055077130:bedrock-usage-alerts",
+      "EMAIL_SERVICE_LAMBDA_NAME": "bedrock-email-service",
+      "EMAIL_NOTIFICATIONS_ENABLED": "true"
+    }
+  },
+  "test_users": {
+    "standard_user": {
+      "user_id": "john.doe",
+      "team": "yo_leo_engineering",
+      "person": "John Doe",
+      "email": "john.doe@example.com",
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "administrative_safe": false
+    },
+    "power_user": {
+      "user_id": "jane.smith",
+      "team": "yo_leo_data_science",
+      "person": "Jane Smith",
+      "email": "jane.smith@example.com",
+      "daily_limit": 1000,
+      "monthly_limit": 15000,
+      "administrative_safe": false
+    },
+    "admin_user": {
+      "user_id": "admin.user",
+      "team": "yo_leo_platform",
+      "person": "Admin User",
+      "email": "admin.user@example.com",
+      "daily_limit": 2000,
+      "monthly_limit": 30000,
+      "administrative_safe": true
+    },
+    "blocked_user": {
+      "user_id": "blocked.user",
+      "team": "yo_leo_engineering",
+      "person": "Blocked User",
+      "email": "blocked.user@example.com",
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "administrative_safe": false,
+      "is_blocked": true,
+      "blocked_reason": "Daily limit exceeded"
+    }
+  },
+  "model_mappings": {
+    "anthropic.claude-3-opus-20240229-v1:0": "Claude 3 Opus",
+    "anthropic.claude-3-sonnet-20240229-v1:0": "Claude 3 Sonnet",
+    "anthropic.claude-3-haiku-20240307-v1:0": "Claude 3 Haiku",
+    "anthropic.claude-3-5-sonnet-20240620-v1:0": "Claude 3.5 Sonnet",
+    "anthropic.claude-sonnet-4-20250514-v1:0": "Claude 3.5 Sonnet",
+    "amazon.titan-text-express-v1": "Amazon Titan Text Express",
+    "amazon.titan-text-lite-v1": "Amazon Titan Text Lite"
+  },
+  "timezone_test_cases": {
+    "winter_time": {
+      "utc": "2024-01-15T10:30:00Z",
+      "cet": "2024-01-15 11:30:00"
+    },
+    "summer_time": {
+      "utc": "2024-07-15T10:30:00Z",
+      "cet": "2024-07-15 12:30:00"
+    },
+    "dst_transition_spring": {
+      "utc": "2024-03-31T01:00:00Z",
+      "cet": "2024-03-31 03:00:00"
+    },
+    "dst_transition_fall": {
+      "utc": "2024-10-27T01:00:00Z",
+      "cet": "2024-10-27 02:00:00"
+    }
+  },
+  "error_scenarios": {
+    "database_connection_error": {
+      "error_type": "ConnectionError",
+      "message": "Unable to connect to MySQL server",
+      "code": 2003
+    },
+    "iam_permission_error": {
+      "error_type": "AccessDenied",
+      "message": "User is not authorized to perform: iam:PutUserPolicy",
+      "code": "AccessDenied"
+    },
+    "smtp_authentication_error": {
+      "error_type": "SMTPAuthenticationError",
+      "message": "Username and Password not accepted",
+      "code": 535
+    },
+    "lambda_invocation_error": {
+      "error_type": "InvocationError",
+      "message": "Function not found",
+      "code": "ResourceNotFoundException"
+    }
+  }
+}

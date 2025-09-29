@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Bedrock Usage Dashboard - Login</title>
+    
+    <!-- AWS Amazon Ember Font -->
+    <link rel="preconnect" href="https://d1tzzh0q3mh5bp.cloudfront.net">
+    <link href="https://d1tzzh0q3mh5bp.cloudfront.net/fonts/amazon-ember/amazon-ember.css" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/aws-sdk@2.1048.0/dist/aws-sdk.min.js"></script>
+    <style>
+        /* Modern Clean Login Styles - Matching Dashboard Design */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Amazon Ember', 'Helvetica Neue', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+            min-height: 100vh;
+            color: #2d3748;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .login-container {
+            max-width: 500px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .login-container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #319795 0%, #2c7a7b 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .header p {
+            font-size: 1rem;
+            opacity: 0.9;
+            font-weight: 400;
+        }
+
+        .login-content {
+            padding: 2rem;
+        }
+
+        .credentials-form h2 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+        }
+
+        .credentials-form p {
+            color: #718096;
+            font-size: 1rem;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 1rem 1.25rem;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #319795;
+            box-shadow: 0 0 0 3px rgba(49, 151, 149, 0.1);
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        .form-control::placeholder {
+            color: #a0aec0;
+        }
+
+        .login-button {
+            width: 100%;
+            padding: 1rem 1.5rem;
+            background: linear-gradient(135deg, #319795 0%, #2c7a7b 100%);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(49, 151, 149, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .login-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(49, 151, 149, 0.4);
+        }
+
+        .login-button:active {
+            transform: translateY(0);
+        }
+
+        .login-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert {
+            background: rgba(229, 62, 62, 0.1);
+            color: #c53030;
+            border-left: 4px solid #e53e3e;
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            display: none;
+            font-weight: 400;
+            backdrop-filter: blur(5px);
+        }
+
+        .alert.show {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .security-note {
+            background: rgba(66, 153, 225, 0.1);
+            color: #3182ce;
+            border-left: 4px solid #4299e1;
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            backdrop-filter: blur(5px);
+        }
+
+        .security-note strong {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            .login-container {
+                max-width: 100%;
+            }
+
+            .header {
+                padding: 1.5rem;
+            }
+
+            .header h1 {
+                font-size: 1.75rem;
+            }
+
+            .login-content {
+                padding: 1.5rem;
+            }
+
+            .credentials-form h2 {
+                font-size: 1.25rem;
+            }
+        }
+
+        /* Focus states for accessibility */
+        .form-control:focus,
+        .login-button:focus {
+            outline: 2px solid #319795;
+            outline-offset: 2px;
+        }
+
+        /* High contrast mode support */
+        @media (prefers-contrast: high) {
+            .form-control {
+                border-color: #2d3748;
+            }
+            
+            .alert {
+                border-width: 2px;
+            }
+        }
+
+        /* Reduced motion support */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="header">
+            <h1>AWS Bedrock Usage Dashboard</h1>
+            <p>Secure access to your usage analytics</p>
+        </div>
+
+        <div class="login-content">
+            <div class="alert" id="error-message">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 20px; height: 20px; flex-shrink: 0;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+                <div>
+                    <strong>Authentication Error</strong>
+                    <span id="error-text"></span>
+                </div>
+            </div>
+
+            <div class="credentials-form">
+                <h2>AWS Credentials</h2>
+                <p>Enter your AWS credentials to access CloudWatch metrics and usage data.</p>
+                
+                <div class="form-group">
+                    <input type="text" id="access-key" class="form-control" placeholder="Access Key ID" autocomplete="username">
+                </div>
+                
+                <div class="form-group">
+                    <input type="password" id="secret-key" class="form-control" placeholder="Secret Access Key" autocomplete="current-password">
+                </div>
+                
+                <button id="login-btn" class="login-button" onclick="login()">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 20px; height: 20px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                    </svg>
+                    Sign In
+                </button>
+            </div>
+
+            <div class="security-note">
+                <strong>🔒 Security Notice</strong>
+                Your credentials are stored securely in your browser session and are only used to authenticate with AWS services. They are never transmitted to external servers.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // AWS Configuration
+        const region = 'eu-west-1';
+        
+        // Login function - matches original behavior
+        function login() {
+            const accessKey = document.getElementById('access-key').value.trim();
+            const secretKey = document.getElementById('secret-key').value.trim();
+            const loginBtn = document.getElementById('login-btn');
+            
+            // Hide any existing errors
+            hideError();
+            
+            // Validation
+            if (!accessKey || !secretKey) {
+                showError('Please enter both Access Key ID and Secret Access Key');
+                return;
+            }
+            
+            // Show loading state
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = `
+                <div class="loading-spinner"></div>
+                Signing in...
+            `;
+            
+            try {
+                // Initialize AWS SDK (basic setup like original)
+                AWS.config.update({
+                    region: region,
+                    credentials: new AWS.Credentials({
+                        accessKeyId: accessKey,
+                        secretAccessKey: secretKey
+                    })
+                });
+                
+                // Store credentials in session storage
+                sessionStorage.setItem('aws_access_key', accessKey);
+                sessionStorage.setItem('aws_secret_key', secretKey);
+                
+                // Success feedback
+                loginBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 20px; height: 20px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Success! Redirecting...
+                `;
+                
+                // Redirect to dashboard after brief delay
+                setTimeout(() => {
+                    window.location.href = 'bedrock_usage_dashboard_modular.html';
+                }, 800);
+                
+            } catch (error) {
+                console.error('Error setting up credentials:', error);
+                
+                // Reset button state
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 20px; height: 20px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                    </svg>
+                    Sign In
+                `;
+                
+                showError('Error setting up credentials. Please check and try again.');
+            }
+        }
+        
+        // Show error message with animation
+        function showError(message) {
+            const errorElement = document.getElementById('error-message');
+            const errorText = document.getElementById('error-text');
+            
+            errorText.textContent = message;
+            errorElement.classList.add('show');
+        }
+        
+        // Hide error message
+        function hideError() {
+            const errorElement = document.getElementById('error-message');
+            errorElement.classList.remove('show');
+        }
+        
+        // Handle Enter key press
+        document.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                login();
+            }
+        });
+        
+        // Check if we were redirected due to missing credentials
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('error') === 'no_credentials') {
+                showError('Session expired or no credentials found. Please login again.');
+            }
+            
+            // Focus on first input field
+            document.getElementById('access-key').focus();
+        });
+        
+        // Clear error when user starts typing
+        document.getElementById('access-key').addEventListener('input', hideError);
+        document.getElementById('secret-key').addEventListener('input', hideError);
+    </script>
+</body>
+</html>

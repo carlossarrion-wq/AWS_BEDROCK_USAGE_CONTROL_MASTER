@@ -1,0 +1,1 @@
+{"statusCode": 500, "body": "{\"error\": \"Error blocking user test_user_001: An error occurred (NoSuchEntity) when calling the PutUserPolicy operation: The user with name test_user_001 cannot be found.\", \"action\": \"block\", \"user_id\": \"test_user_001\"}"}

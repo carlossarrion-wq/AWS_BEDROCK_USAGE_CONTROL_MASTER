@@ -1,0 +1,13 @@
+{
+  "action": "block",
+  "user_id": "sdlc_004",
+  "reason": "daily_limit_exceeded",
+  "performed_by": "system",
+  "usage_record": {
+    "request_count": 250,
+    "daily_limit": 250,
+    "team": "test_team",
+    "date": "2025-09-22",
+    "person": "SDLC User 004"
+  }
+}

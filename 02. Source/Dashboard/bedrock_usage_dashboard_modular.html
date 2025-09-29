@@ -1,0 +1,1973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Bedrock Usage Dashboard</title>
+    
+    <!-- AWS Amazon Ember Font -->
+    <link rel="preconnect" href="https://d1tzzh0q3mh5bp.cloudfront.net">
+    <link href="https://d1tzzh0q3mh5bp.cloudfront.net/fonts/amazon-ember/amazon-ember.css" rel="stylesheet">
+    
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aws-sdk@2.1048.0/dist/aws-sdk.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
+    
+    <style>
+        /* Modern Clean Dashboard Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Amazon Ember', 'Helvetica Neue', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+            min-height: 100vh;
+            color: #2d3748;
+        }
+
+        /* Header Section */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 2rem 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #319795 0%, #2c7a7b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 1.1rem;
+            margin: 0;
+        }
+
+        .header button {
+            background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            font-weight: 400;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(248, 113, 113, 0.3);
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .header button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(248, 113, 113, 0.4);
+        }
+
+        /* Connection Status */
+        .connection-status {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 50px;
+            font-size: 0.875rem;
+            font-weight: 400;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .connection-status.connected {
+            background: rgba(49, 151, 149, 0.9);
+            color: white;
+        }
+
+        .connection-status.disconnected {
+            background: rgba(229, 62, 62, 0.9);
+            color: white;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1920px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Tab Navigation */
+        .tab-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .tab-button {
+            padding: 1rem 2rem;
+            background: rgba(49, 151, 149, 0.1);
+            border: 2px solid transparent;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 400;
+            font-size: 1.1rem;
+            color: #319795;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tab-button.active {
+            background: linear-gradient(135deg, #319795 0%, #2c7a7b 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(49, 151, 149, 0.3);
+        }
+
+        .tab-button:hover:not(.active) {
+            background: rgba(49, 151, 149, 0.2);
+            transform: translateY(-2px);
+        }
+
+        /* Section Headers */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .section-header h2 {
+            font-size: 2rem;
+            font-weight: 500;
+            color: #2d3748;
+        }
+
+        .refresh-button {
+            background: linear-gradient(135deg, #319795 0%, #2c7a7b 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 400;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(49, 151, 149, 0.3);
+        }
+
+        .refresh-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(49, 151, 149, 0.4);
+        }
+
+        .refresh-icon {
+            font-size: 1.2rem;
+        }
+
+        /* Dashboard Grid */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .dashboard.wide {
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+        }
+
+        /* Cards */
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .card h2 {
+            font-size: 1.25rem;
+            color: #2d3748;
+            margin-bottom: 1.5rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 350px;
+            width: 100%;
+        }
+
+        /* Export Button */
+        .export-button {
+            background: rgba(49, 151, 149, 0.1);
+            color: #319795;
+            border: 2px solid rgba(49, 151, 149, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 400;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+        }
+
+        .export-button:hover {
+            background: rgba(49, 151, 149, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .export-icon {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        table th {
+            background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e0 100%);
+            color: #2d3748;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 500;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        table td {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            font-size: 0.9rem;
+        }
+
+        table tr:hover {
+            background: rgba(49, 151, 149, 0.05);
+        }
+
+        /* Alerts */
+        .alert {
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-weight: 400;
+        }
+
+        .alert.info {
+            background: rgba(66, 153, 225, 0.1);
+            color: #3182ce;
+            border-left: 4px solid #4299e1;
+        }
+
+        .alert.success {
+            background: rgba(56, 178, 172, 0.1);
+            color: #2c7a7b;
+            border-left: 4px solid #38b2ac;
+        }
+
+        .alert.warning {
+            background: rgba(237, 137, 54, 0.1);
+            color: #dd6b20;
+            border-left: 4px solid #ed8936;
+        }
+
+        .alert.critical {
+            background: rgba(229, 62, 62, 0.1);
+            color: #c53030;
+            border-left: 4px solid #e53e3e;
+        }
+
+        /* Loading Spinner */
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(49, 151, 149, 0.3);
+            border-top: 3px solid #319795;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Admin Controls */
+        .admin-controls {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .blocking-controls h3 {
+            color: #2d3748;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+
+        .block-form {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+
+        .form-control {
+            padding: 0.75rem 1rem;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #319795;
+            box-shadow: 0 0 0 3px rgba(49, 151, 149, 0.1);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 400;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-select-user {
+            background: rgba(49, 151, 149, 0.1);
+            color: #319795;
+            border: 2px solid rgba(49, 151, 149, 0.2);
+        }
+
+        .btn-select-user:hover:not(:disabled) {
+            background: rgba(49, 151, 149, 0.2);
+            transform: translateY(-2px);
+        }
+
+        /* Pagination Controls */
+        .pagination-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .pagination-info {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+
+        .pagination-buttons {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .pagination-buttons .btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            padding: 0.5rem 1.5rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            min-width: 120px;
+        }
+
+        .status-badge.active {
+            background: rgba(72, 187, 120, 0.15);
+            color: #2f855a;
+        }
+
+        .status-badge.active-adm {
+            background: rgba(72, 187, 120, 0.15);
+            color: #2f855a;
+        }
+
+        .status-badge.blocked {
+            background: rgba(252, 129, 129, 0.15);
+            color: #dc3545;
+        }
+
+        .status-badge.blocked-adm {
+            background: rgba(252, 129, 129, 0.15);
+            color: #dc3545;
+        }
+
+        .status-badge svg {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+        }
+
+        /* Status column styling */
+        table td:nth-child(4) {
+            text-align: center;
+            width: 150px;
+        }
+
+        /* User Usage Details table - center numeric columns */
+        #user-usage-table th:nth-child(5),
+        #user-usage-table th:nth-child(6),
+        #user-usage-table th:nth-child(7),
+        #user-usage-table th:nth-child(8),
+        #user-usage-table th:nth-child(9),
+        #user-usage-table th:nth-child(10),
+        #user-usage-table td:nth-child(5),
+        #user-usage-table td:nth-child(6),
+        #user-usage-table td:nth-child(7),
+        #user-usage-table td:nth-child(8),
+        #user-usage-table td:nth-child(9),
+        #user-usage-table td:nth-child(10) {
+            text-align: center;
+        }
+
+        /* Team Usage Details table - center numeric columns */
+        #team-usage-table th:nth-child(2),
+        #team-usage-table th:nth-child(3),
+        #team-usage-table th:nth-child(4),
+        #team-usage-table th:nth-child(5),
+        #team-usage-table th:nth-child(6),
+        #team-usage-table td:nth-child(2),
+        #team-usage-table td:nth-child(3),
+        #team-usage-table td:nth-child(4),
+        #team-usage-table td:nth-child(5),
+        #team-usage-table td:nth-child(6) {
+            text-align: center;
+        }
+
+        /* Users in Team table - center numeric columns */
+        #team-users-table th:nth-child(4),
+        #team-users-table th:nth-child(5),
+        #team-users-table td:nth-child(4),
+        #team-users-table td:nth-child(5) {
+            text-align: center;
+        }
+
+        /* Consumption Details table - center numeric columns (daily data columns) */
+        #consumption-details-table th:nth-child(n+4),
+        #consumption-details-table td:nth-child(n+4) {
+            text-align: center;
+        }
+
+        /* Model Usage table - center numeric columns (all model columns and total) */
+        #model-usage-table th:nth-child(n+2),
+        #model-usage-table td:nth-child(n+2) {
+            text-align: center;
+        }
+
+        /* Cost Analysis table - center numeric columns (all cost columns) */
+        #cost-analysis-table th:nth-child(n+2),
+        #cost-analysis-table td:nth-child(n+2) {
+            text-align: center;
+        }
+
+        /* Cost vs Requests table - center numeric columns */
+        #cost-vs-requests-table th:nth-child(2),
+        #cost-vs-requests-table th:nth-child(3),
+        #cost-vs-requests-table th:nth-child(4),
+        #cost-vs-requests-table td:nth-child(2),
+        #cost-vs-requests-table td:nth-child(3),
+        #cost-vs-requests-table td:nth-child(4) {
+            text-align: center;
+        }
+
+        /* Cost Attribution table - center numeric columns (all cost columns) */
+        #cost-attribution-table th:nth-child(n+2),
+        #cost-attribution-table td:nth-child(n+2) {
+            text-align: center;
+        }
+
+        /* User Blocking Status table - center numeric columns */
+        #user-blocking-status-table th:nth-child(5),
+        #user-blocking-status-table th:nth-child(6),
+        #user-blocking-status-table th:nth-child(7),
+        #user-blocking-status-table td:nth-child(5),
+        #user-blocking-status-table td:nth-child(6),
+        #user-blocking-status-table td:nth-child(7) {
+            text-align: center;
+        }
+
+        /* Progress Bar Visual Indicators with Growing Range */
+        .percentage-indicator {
+            position: relative;
+            display: inline-block;
+            width: 120px;
+            height: 24px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .percentage-indicator:hover {
+            transform: translateY(-1px);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Progress bar fill */
+        .percentage-indicator::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: var(--fill-width, 0%);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            z-index: 1;
+        }
+
+        /* Progress bar text */
+        .percentage-indicator::after {
+            content: attr(data-percentage);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 11px;
+            font-weight: 600;
+            color: #2d3748;
+            z-index: 2;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+        }
+
+        /* Low usage: 0-25% - Soft mint green */
+        .percentage-indicator.low::before {
+            background: linear-gradient(90deg, #a7f3d0 0%, #86efac 100%);
+        }
+
+        /* Medium-low usage: 26-50% - Gentle sage green */
+        .percentage-indicator.medium-low::before {
+            background: linear-gradient(90deg, #bef264 0%, #a3e635 100%);
+        }
+
+        /* Medium usage: 51-75% - Soft amber */
+        .percentage-indicator.medium::before {
+            background: linear-gradient(90deg, #fde68a 0%, #fbbf24 100%);
+        }
+
+        /* High usage: 76-90% - Gentle coral */
+        .percentage-indicator.high::before {
+            background: linear-gradient(90deg, #fca5a5 0%, #f87171 100%);
+        }
+
+        .percentage-indicator.high::after {
+            color: #374151;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+        }
+
+        /* Critical usage: 91-100% - Soft rose with gentle pulsing */
+        .percentage-indicator.critical::before {
+            background: linear-gradient(90deg, #f87171 0%, #ef4444 100%);
+            animation: pulse-critical-fill 3s infinite;
+        }
+
+        .percentage-indicator.critical::after {
+            color: #374151;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+        }
+
+        @keyframes pulse-critical-fill {
+            0%, 100% {
+                box-shadow: 0 0 0 rgba(248, 113, 113, 0.3);
+            }
+            50% {
+                box-shadow: 0 0 6px rgba(248, 113, 113, 0.5);
+            }
+        }
+
+        /* Special styling for 0% usage */
+        .percentage-indicator.zero::before {
+            background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%);
+            width: 0% !important;
+        }
+
+        .percentage-indicator.zero::after {
+            color: #64748b;
+        }
+
+        /* Special styling for 100% usage */
+        .percentage-indicator.full::before {
+            background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+            animation: pulse-full-fill 2.5s infinite;
+        }
+
+        .percentage-indicator.full::after {
+            color: #374151;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+        }
+
+        @keyframes pulse-full-fill {
+            0%, 100% {
+                box-shadow: 0 0 0 rgba(239, 68, 68, 0.3);
+            }
+            50% {
+                box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+            }
+        }
+
+        /* Responsive adjustments for progress bars */
+        @media (max-width: 768px) {
+            .percentage-indicator {
+                width: 100px;
+                height: 20px;
+            }
+            
+            .percentage-indicator::after {
+                font-size: 10px;
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .dashboard {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .tab-buttons {
+                flex-direction: column;
+            }
+
+            .tab-button {
+                text-align: center;
+            }
+
+            .section-header {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: stretch;
+            }
+
+            .export-button {
+                position: static;
+                align-self: flex-end;
+                margin-bottom: 1rem;
+            }
+        }
+
+        /* Overview Tab Specific Styles */
+        .metric-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .metric-card h3 {
+            font-size: 1.1rem;
+            color: #718096;
+            margin-bottom: 1rem;
+            font-weight: 400;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 3rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #319795 0%, #2c7a7b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .metric-change {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 400;
+        }
+
+        .metric-change.positive {
+            color: #38b2ac;
+        }
+
+        .metric-change.negative {
+            color: #e53e3e;
+        }
+
+        .metric-subtitle {
+            color: #a0aec0;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Connection Status Indicator -->
+    <div id="connection-status" class="connection-status disconnected">
+        🔴 Disconnected from AWS
+    </div>
+
+    <div class="header">
+        <h1>AWS Bedrock Usage Dashboard</h1>
+        <p>Real-time monitoring and management of Bedrock usage</p>
+        <button onclick="logout()">Logout</button>
+    </div>
+
+    <div class="container">
+        <div class="tab-container">
+            <div class="tab-buttons">
+                <button class="tab-button active" onclick="showTab('user-tab')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 20px; height: 20px; margin-right: 8px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                    </svg>
+                    User Consumption
+                </button>
+                <button class="tab-button" onclick="showTab('team-tab')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 20px; height: 20px; margin-right: 8px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                    </svg>
+                    Team Consumption
+                </button>
+                <button class="tab-button" onclick="showTab('consumption-details-tab')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 20px; height: 20px; margin-right: 8px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+                    </svg>
+                    Consumption Details
+                </button>
+                <button class="tab-button" onclick="showTab('cost-analysis-tab')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 20px; height: 20px; margin-right: 8px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Cost Analysis
+                </button>
+                <button class="tab-button" onclick="showTab('blocking-management-tab')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 20px; height: 20px; margin-right: 8px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.623 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                    </svg>
+                    Blocking Management
+                </button>
+                <button class="tab-button" onclick="showTab('aws-costs-tab')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 20px; height: 20px; margin-right: 8px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H4.5m2.25 0v3.75c0 .414.336.75.75.75s.75-.336.75-.75V4.5m0 0h1.5m0 0v.375c0 .621.504 1.125 1.125 1.125H9.75v-3.75c0-.621.504-1.125 1.125-1.125h1.5m0 0h.375c0 .621.504 1.125 1.125 1.125H15m1.5 0v.75A.75.75 0 0115 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H16.5m0 0h.375c0 .621.504 1.125 1.125 1.125H18.75m-2.25-3.75v3.75c0 .414.336.75.75.75s.75-.336.75-.75V4.5h.75m0 0v.375c0 .621.504 1.125 1.125 1.125H21m-1.5 0v.75A.75.75 0 0118 6h-.75" />
+                    </svg>
+                    AWS Costs Control
+                </button>
+            </div>
+            
+            <!-- User Consumption Tab -->
+            <div id="user-tab" class="tab-content active">
+                <div class="section-header">
+                    <h2>User Consumption</h2>
+                    <button class="refresh-button" onclick="loadDashboardData()" title="Refresh Data">
+                        <span class="refresh-icon">&#x21bb;</span>
+                        Refresh
+                    </button>
+                </div>
+                
+                <!-- Top Row: Quadrant Layout -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                    <!-- Top-Left Quadrant: 4 Key Metrics (2x2 grid) -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="metric-card">
+                            <h3>Total Requests</h3>
+                            <div class="metric-value" id="user-total-requests-today">-</div>
+                            <div class="metric-change positive" id="user-requests-change">
+                                <span>↗</span> Loading...
+                            </div>
+                            <div class="metric-subtitle">Today</div>
+                        </div>
+                        
+                        <div class="metric-card">
+                            <h3>Active Users</h3>
+                            <div class="metric-value" id="user-active-users">-</div>
+                            <div class="metric-change positive" id="user-users-change">
+                                <span>↗</span> Loading...
+                            </div>
+                            <div class="metric-subtitle">Today</div>
+                        </div>
+                        
+                        <div class="metric-card">
+                            <h3>Avg Requests/User</h3>
+                            <div class="metric-value" id="user-avg-requests">-</div>
+                            <div class="metric-change" id="user-avg-change">
+                                <span>-</span> Loading...
+                            </div>
+                            <div class="metric-subtitle">Active users today</div>
+                        </div>
+                        
+                        <div class="metric-card">
+                            <h3>Avg Cost/User</h3>
+                            <div class="metric-value" id="user-avg-cost">$-</div>
+                            <div class="metric-change" id="user-cost-change">
+                                <span>-</span> Loading...
+                            </div>
+                            <div class="metric-subtitle">Yesterday</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Top-Right Quadrant: Hourly Usage Histogram -->
+                    <div class="card">
+                        <h2>Hourly Usage Today</h2>
+                        <div style="height: 300px; position: relative;">
+                            <canvas id="hourly-histogram-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Bottom Row: Alerts and User Histogram -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                    <!-- Bottom-Left: Alerts -->
+                    <div class="card">
+                        <h2>User Usage Alerts</h2>
+                        <div id="user-alerts-container">
+                            <div class="alert info">
+                                <div class="loading-spinner"></div>
+                                <strong>Connecting:</strong> Establishing connection to AWS...
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Bottom-Right: Histogram per User -->
+                    <div class="card">
+                        <h2>Usage Distribution by User</h2>
+                        <div style="height: 300px; position: relative;">
+                            <canvas id="user-distribution-histogram"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card" style="margin-top: 20px; position: relative;">
+                    <h2>User Usage Details</h2>
+                    <button class="export-button" onclick="exportUserUsageTable()" title="Export to CSV">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        Export
+                    </button>
+                    
+                    <!-- Pagination Controls for User Usage Details -->
+                    <div class="pagination-controls" style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <div class="pagination-info">
+                            <span id="user-usage-info">Showing 0-0 of 0 users</span>
+                        </div>
+                        <div class="pagination-buttons">
+                            <button id="prev-user-usage-btn" class="btn" style="margin-right: 5px;" onclick="loadPreviousUserUsagePage()" disabled>
+                                ←
+                            </button>
+                            <span id="user-usage-page-info">Page 1</span>
+                            <button id="next-user-usage-btn" class="btn" style="margin-left: 5px;" onclick="loadNextUserUsagePage()" disabled>
+                                →
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <table id="user-usage-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Person</th>
+                                <th>Team</th>
+                                <th>Blocking Status</th>
+                                <th>Daily Requests</th>
+                                <th>Daily Limit</th>
+                                <th>Daily Usage</th>
+                                <th>Monthly Requests</th>
+                                <th>Monthly Limit</th>
+                                <th>Monthly Usage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>john.doe@company.com</td>
+                                <td>John Doe</td>
+                                <td>Engineering</td>
+                                <td>
+                                    <span class="status-badge active-adm">
+                                        ACTIVE_ADM
+                                    </span>
+                                </td>
+                                <td>45/100</td>
+                                <td>100</td>
+                                <td><span class="percentage-indicator medium-low" data-percentage="45%" style="--fill-width: 45%"></span></td>
+                                <td>1,250/5,000</td>
+                                <td>5,000</td>
+                                <td><span class="percentage-indicator low" data-percentage="25%" style="--fill-width: 25%"></span></td>
+                            </tr>
+                            <tr>
+                                <td>jane.smith@company.com</td>
+                                <td>Jane Smith</td>
+                                <td>Marketing</td>
+                                <td>
+                                    <span class="status-badge active">
+                                        ACTIVE
+                                    </span>
+                                </td>
+                                <td>78/100</td>
+                                <td>100</td>
+                                <td><span class="percentage-indicator high" data-percentage="78%" style="--fill-width: 78%"></span></td>
+                                <td>2,100/3,000</td>
+                                <td>3,000</td>
+                                <td><span class="percentage-indicator medium" data-percentage="70%" style="--fill-width: 70%"></span></td>
+                            </tr>
+                            <tr>
+                                <td>blocked.user@company.com</td>
+                                <td>Blocked User</td>
+                                <td>Sales</td>
+                                <td>
+                                    <span class="status-badge blocked">
+                                        BLOCKED
+                                    </span>
+                                </td>
+                                <td>0/100</td>
+                                <td>100</td>
+                                <td><span class="percentage-indicator zero" data-percentage="0%" style="--fill-width: 0%"></span></td>
+                                <td>0/2,000</td>
+                                <td>2,000</td>
+                                <td><span class="percentage-indicator zero" data-percentage="0%" style="--fill-width: 0%"></span></td>
+                            </tr>
+                            <tr>
+                                <td>admin.blocked@company.com</td>
+                                <td>Admin Blocked</td>
+                                <td>IT</td>
+                                <td>
+                                    <span class="status-badge blocked-adm">
+                                        BLOCKED_ADM
+                                    </span>
+                                </td>
+                                <td>0/100</td>
+                                <td>100</td>
+                                <td><span class="percentage-indicator zero" data-percentage="0%" style="--fill-width: 0%"></span></td>
+                                <td>0/1,500</td>
+                                <td>1,500</td>
+                                <td><span class="percentage-indicator zero" data-percentage="0%" style="--fill-width: 0%"></span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="dashboard" style="margin-top: 20px;">
+                    <div class="card">
+                        <h2>User Daily Usage</h2>
+                        <div class="chart-container">
+                            <canvas id="user-daily-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h2>Model Usage Distribution Today</h2>
+                        <div class="chart-container">
+                            <canvas id="user-model-distribution-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Team Consumption Tab -->
+            <div id="team-tab" class="tab-content">
+                <div class="section-header">
+                    <h2>Team Consumption</h2>
+                    <button class="refresh-button" onclick="loadDashboardData()" title="Refresh Data">
+                        <span class="refresh-icon">&#x21bb;</span>
+                        Refresh
+                    </button>
+                </div>
+                
+                <div class="dashboard">
+                    <div class="card">
+                        <h2>Team Usage Alerts</h2>
+                        <div id="team-alerts-container">
+                            <div class="alert info">
+                                <div class="loading-spinner"></div>
+                                <strong>Loading:</strong> Fetching team data from AWS CloudWatch...
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h2>Team Monthly Usage</h2>
+                        <div class="chart-container">
+                            <canvas id="team-monthly-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="dashboard" style="margin-top: 20px;">
+                    <div class="card" style="position: relative;">
+                        <h2>Team Usage Details</h2>
+                        <button class="export-button" onclick="exportTeamUsageTable()" title="Export to CSV">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                            </svg>
+                            Export
+                        </button>
+                        <table id="team-usage-table">
+                            <thead>
+                                <tr>
+                                    <th>Team</th>
+                                    <th>Daily Requests</th>
+                                    <th>Daily Usage</th>
+                                    <th>Monthly Requests</th>
+                                    <th>Monthly Limit</th>
+                                    <th>Monthly Usage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="6">
+                                        <div class="loading-spinner"></div>
+                                        Loading team data...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="card" style="position: relative;">
+                        <h2>Users in Team</h2>
+                        <button class="export-button" onclick="exportTeamUsersTable()" title="Export to CSV">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                            </svg>
+                            Export
+                        </button>
+                        
+                        <!-- Pagination Controls for Users in Team -->
+                        <div class="pagination-controls" style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                            <div class="pagination-info">
+                                <span id="team-users-info">Showing 0-0 of 0 users</span>
+                            </div>
+                            <div class="pagination-buttons">
+                                <button id="prev-team-users-btn" class="btn" style="margin-right: 5px;" onclick="loadPreviousTeamUsersPage()" disabled>
+                                    ←
+                                </button>
+                                <span id="team-users-page-info">Page 1</span>
+                                <button id="next-team-users-btn" class="btn" style="margin-left: 5px;" onclick="loadNextTeamUsersPage()" disabled>
+                                    →
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <table id="team-users-table">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Person</th>
+                                    <th>Team</th>
+                                    <th>Monthly Requests</th>
+                                    <th>% of Team Usage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="5">
+                                        <div class="loading-spinner"></div>
+                                        Loading team users...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="dashboard" style="margin-top: 20px;">
+                    <div class="card">
+                        <h2>Team Daily Usage</h2>
+                        <div class="chart-container">
+                            <canvas id="team-daily-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Consumption Details Tab -->
+            <div id="consumption-details-tab" class="tab-content">
+                <div class="section-header">
+                    <h2>Consumption Details</h2>
+                    <button class="refresh-button" onclick="refreshConsumptionDetails()" title="Refresh Data">
+                        <span class="refresh-icon">&#x21bb;</span>
+                        Refresh
+                    </button>
+                </div>
+                
+                <div class="card" style="margin-top: 20px;">
+                    <h2>Daily Usage Trend - Last 10 Days</h2>
+                    <div class="chart-container">
+                        <canvas id="consumption-details-chart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="card" style="margin-top: 20px; position: relative;">
+                    <h2>User Consumption - Last 10 Days</h2>
+                    <button class="export-button" onclick="exportConsumptionDetailsTable()" title="Export to CSV">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        Export
+                    </button>
+                    
+                    <!-- Pagination Controls for User Consumption - Last 10 Days -->
+                    <div class="pagination-controls" style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <div class="pagination-info">
+                            <span id="consumption-details-info">Showing 0-0 of 0 users</span>
+                        </div>
+                        <div class="pagination-buttons">
+                            <button id="prev-consumption-details-btn" class="btn" style="margin-right: 5px;" onclick="loadPreviousConsumptionDetailsPage()" disabled>
+                                ←
+                            </button>
+                            <span id="consumption-details-page-info">Page 1</span>
+                            <button id="next-consumption-details-btn" class="btn" style="margin-left: 5px;" onclick="loadNextConsumptionDetailsPage()" disabled>
+                                →
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <table id="consumption-details-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Person</th>
+                                <th>Team</th>
+                                <th id="day-9">Day -9</th>
+                                <th id="day-8">Day -8</th>
+                                <th id="day-7">Day -7</th>
+                                <th id="day-6">Day -6</th>
+                                <th id="day-5">Day -5</th>
+                                <th id="day-4">Day -4</th>
+                                <th id="day-3">Day -3</th>
+                                <th id="day-2">Day -2</th>
+                                <th id="day-1">Day -1</th>
+                                <th id="day-0">Today</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="13">
+                                    <div class="loading-spinner"></div>
+                                    Loading consumption details...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="card" style="margin-top: 20px; position: relative;">
+                    <h2>Model Usage by Team - Last 10 Days</h2>
+                    <button class="export-button" onclick="exportModelUsageTable()" title="Export to CSV">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        Export
+                    </button>
+                    <table id="model-usage-table">
+                        <thead>
+                            <tr>
+                                <th>Team</th>
+                                <th>Claude 3 Opus</th>
+                                <th>Claude 3 Sonnet</th>
+                                <th>Claude 3 Haiku</th>
+                                <th>Claude 3.7 Sonnet</th>
+                                <th>Claude 4</th>
+                                <th>Amazon Titan</th>
+                                <th>Total Requests</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="8">
+                                    <div class="loading-spinner"></div>
+                                    Loading model usage data...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Cost Analysis Tab -->
+            <div id="cost-analysis-tab" class="tab-content">
+                <div class="section-header">
+                    <h2>Cost Analysis</h2>
+                    <button class="refresh-button" onclick="refreshCostAnalysis()" title="Refresh Data">
+                        <span class="refresh-icon">&#x21bb;</span>
+                        Refresh
+                    </button>
+                </div>
+                
+                <!-- Top Row: Monthly Cost Indicator (Left) and Alerts (Right) -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                    <!-- Left: Monthly Cost Indicator -->
+                    <div class="metric-card" id="monthly-cost-indicator">
+                        <h3>Monthly Bedrock Cost</h3>
+                        <div class="metric-value">$0.00</div>
+                        <div class="metric-change">
+                            <span>→</span> Loading...
+                        </div>
+                        <div class="metric-subtitle">Loading monthly data...</div>
+                    </div>
+                    
+                    <!-- Right: Cost Analysis Alerts -->
+                    <div class="card">
+                        <h2>Cost Analysis Alerts</h2>
+                        <div id="cost-alerts-container">
+                            <div class="alert info">
+                                <div class="loading-spinner"></div>
+                                <strong>Loading:</strong> Fetching cost data from AWS Cost Explorer...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card" style="margin-top: 20px; position: relative;">
+                    <h2>Bedrock Service Costs - Last 10 Days</h2>
+                    <button class="export-button" onclick="exportCostAnalysisTable()" title="Export to CSV">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        Export
+                    </button>
+                    <table id="cost-analysis-table">
+                        <thead>
+                            <tr>
+                                <th>Service</th>
+                                <th id="cost-day-9">Day -9</th>
+                                <th id="cost-day-8">Day -8</th>
+                                <th id="cost-day-7">Day -7</th>
+                                <th id="cost-day-6">Day -6</th>
+                                <th id="cost-day-5">Day -5</th>
+                                <th id="cost-day-4">Day -4</th>
+                                <th id="cost-day-3">Day -3</th>
+                                <th id="cost-day-2">Day -2</th>
+                                <th id="cost-day-1">Day -1</th>
+                                <th id="cost-day-0">Today</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="12">
+                                    <div class="loading-spinner"></div>
+                                    Loading cost analysis data...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="card" style="margin-top: 20px; position: relative;">
+                    <h2>Daily Cost vs Requests Analysis - Last 10 Days</h2>
+                    <button class="export-button" onclick="exportCostVsRequestsTable()" title="Export to CSV">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        Export
+                    </button>
+                    <table id="cost-vs-requests-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Total Cost (USD)</th>
+                                <th>Total Requests</th>
+                                <th>Cost per Request (USD)</th>
+                                <th>Efficiency Rating</th>
+                                <th>Cost Trend</th>
+                                <th>Request Trend</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="7">
+                                    <div class="loading-spinner"></div>
+                                    Loading cost vs requests analysis...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="card" style="margin-top: 20px; position: relative;">
+                    <h2>Team Cost Attribution - Last 10 Days</h2>
+                    <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                        <strong>Formula:</strong> Team Daily Cost = (Team Daily Requests ÷ Total Daily Requests) × Average Cost per Request
+                    </p>
+                    <button class="export-button" onclick="exportCostAttributionTable()" title="Export to CSV">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        Export
+                    </button>
+                    <table id="cost-attribution-table">
+                        <thead>
+                            <tr>
+                                <th>Team</th>
+                                <th id="attr-day-9">8 Sep</th>
+                                <th id="attr-day-8">9 Sep</th>
+                                <th id="attr-day-7">10 Sep</th>
+                                <th id="attr-day-6">11 Sep</th>
+                                <th id="attr-day-5">12 Sep</th>
+                                <th id="attr-day-4">13 Sep</th>
+                                <th id="attr-day-3">14 Sep</th>
+                                <th id="attr-day-2">15 Sep</th>
+                                <th id="attr-day-1">16 Sep</th>
+                                <th id="attr-day-0">17 Sep</th>
+                                <th>Total</th>
+                                <th>Avg Daily</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="13">
+                                    <div class="loading-spinner"></div>
+                                    Loading cost attribution analysis...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="dashboard" style="margin-top: 20px;">
+                    <div class="card">
+                        <h2>Daily Cost Trend - Last 10 Days</h2>
+                        <div class="chart-container">
+                            <canvas id="cost-trend-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h2>Service Cost Distribution</h2>
+                        <div class="chart-container">
+                            <canvas id="service-cost-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="dashboard" style="margin-top: 20px;">
+                    <div class="card">
+                        <h2>Cost per Request Trend</h2>
+                        <div class="chart-container">
+                            <canvas id="cost-per-request-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h2>Cost vs Requests Correlation</h2>
+                        <div class="chart-container">
+                            <canvas id="cost-requests-correlation-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Blocking Management Tab -->
+            <div id="blocking-management-tab" class="tab-content">
+                <div class="section-header">
+                    <h2>User Blocking Management</h2>
+                    <button class="refresh-button" onclick="loadBlockingData()" title="Refresh Data">
+                        <span class="refresh-icon">&#x21bb;</span>
+                        Refresh
+                    </button>
+                </div>
+                
+                <div class="card" style="position: relative;">
+                    <h2>Current User Status & Manual Blocking</h2>
+                    <button class="export-button" onclick="exportUserBlockingStatusTable()" title="Export to CSV">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        Export
+                    </button>
+                    <div class="admin-controls">
+                        <div class="blocking-controls">
+                            <h3>Manual Block User</h3>
+                            <div class="block-form">
+                                <select id="user-select" class="form-control">
+                                    <option value="">Select User to Block...</option>
+                                </select>
+                                <select id="block-duration" class="form-control" onchange="handleDurationChange()">
+                                    <option value="1day">1 Day</option>
+                                    <option value="30days">30 Days</option>
+                                    <option value="90days">90 Days</option>
+                                    <option value="custom">Custom</option>
+                                    <option value="indefinite">Indefinite</option>
+                                </select>
+                                <input type="datetime-local" id="custom-datetime" class="form-control" style="display: none;">
+                                <input type="text" id="block-reason" class="form-control" placeholder="Reason for blocking/unblocking...">
+                                <button id="dynamic-action-btn" onclick="performDynamicAction()" class="btn btn-select-user" disabled>
+                                    Select user
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Pagination Controls for Current User Status & Manual Blocking -->
+                    <div class="pagination-controls" style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <div class="pagination-info">
+                            <span id="blocking-status-info">Showing 0-0 of 0 users</span>
+                        </div>
+                        <div class="pagination-buttons">
+                            <button id="prev-blocking-status-btn" class="btn" style="margin-right: 5px;" onclick="loadPreviousBlockingStatusPage()" disabled>
+                                ←
+                            </button>
+                            <span id="blocking-status-page-info">Page 1</span>
+                            <button id="next-blocking-status-btn" class="btn" style="margin-left: 5px;" onclick="loadNextBlockingStatusPage()" disabled>
+                                →
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <table id="user-blocking-status-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Person</th>
+                                <th>Team</th>
+                                <th>Status</th>
+                                <th>Daily Usage</th>
+                                <th>Daily Limit</th>
+                                <th>Daily Usage</th>
+                                <th>Block Type</th>
+                                <th>Blocked Since</th>
+                                <th>Expires</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="9">
+                                    <div class="loading-spinner"></div>
+                                    Loading blocking status...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="card" style="position: relative; margin-top: 20px;">
+                    <h2>Recent Blocking Operations</h2>
+                    <button class="export-button" onclick="exportBlockingOperationsTable()" title="Export to CSV">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        Export
+                    </button>
+                    <div class="pagination-controls" style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <div class="pagination-info">
+                            <span id="operations-info">Showing 0-0 of 0 operations</span>
+                        </div>
+                        <div class="pagination-buttons">
+                            <button id="prev-operations-btn" class="btn" style="margin-right: 5px;" onclick="loadPreviousOperations()" disabled>
+                                ←
+                            </button>
+                            <span id="operations-page-info">Page 1</span>
+                            <button id="next-operations-btn" class="btn" style="margin-left: 5px;" onclick="loadNextOperations()" disabled>
+                                →
+                            </button>
+                        </div>
+                    </div>
+                    <table id="blocking-operations-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>User</th>
+                                <th>Person</th>
+                                <th>Operation</th>
+                                <th>Reason</th>
+                                <th>Performed By</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="6">
+                                    <div class="loading-spinner"></div>
+                                    Loading operations history...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- AWS Costs Control Tab -->
+            <div id="aws-costs-tab" class="tab-content">
+                <div class="section-header">
+                    <h2>AWS Costs Control</h2>
+                    <button class="refresh-button" onclick="refreshAWSCosts()" title="Refresh Data">
+                        <span class="refresh-icon">&#x21bb;</span>
+                        Refresh
+                    </button>
+                </div>
+                
+                <!-- AWS Cost Alerts & Recommendations - Moved to Top -->
+                <div class="card" style="margin-bottom: 2rem;">
+                    <h2>AWS Cost Alerts & Recommendations</h2>
+                    <div id="aws-cost-alerts-container">
+                        <div class="alert info">
+                            <div class="loading-spinner"></div>
+                            <strong>Loading:</strong> Fetching AWS cost data from Cost Explorer...
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Top Row: Monthly AWS Cost Indicator and Service Filters -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                    <!-- Left: Monthly AWS Cost Indicator -->
+                    <div class="metric-card" id="monthly-aws-cost-indicator">
+                        <h3>Monthly AWS Cost (All Services)</h3>
+                        <div class="metric-value" id="aws-total-cost">$0.00</div>
+                        <div class="metric-change" id="aws-cost-change">
+                            <span>→</span> Loading...
+                        </div>
+                        <div class="metric-subtitle" id="aws-cost-subtitle">Loading monthly data...</div>
+                    </div>
+                    
+                    <!-- Right: Service Filters and Controls -->
+                    <div class="card">
+                        <h2>Service Filters & Controls</h2>
+                        <div class="admin-controls">
+                            <div class="blocking-controls">
+                                <h3>Filter AWS Services</h3>
+                                <div class="block-form">
+                                    <select id="service-category-filter" class="form-control" onchange="filterServicesByCategory()">
+                                        <option value="all">All Services</option>
+                                        <option value="compute">Compute (EC2, Lambda, ECS)</option>
+                                        <option value="storage">Storage (S3, EBS, EFS)</option>
+                                        <option value="database">Database (RDS, DynamoDB)</option>
+                                        <option value="networking">Networking (VPC, CloudFront)</option>
+                                        <option value="ai-ml">AI/ML (Bedrock, SageMaker)</option>
+                                        <option value="analytics">Analytics (Athena, Glue)</option>
+                                        <option value="security">Security (IAM, KMS, WAF)</option>
+                                        <option value="management">Management (CloudWatch, Config)</option>
+                                    </select>
+                                    <select id="time-period-filter" class="form-control" onchange="changeTimePeriod()">
+                                        <option value="7d">Last 7 Days</option>
+                                        <option value="30d" selected>Last 30 Days</option>
+                                        <option value="90d">Last 90 Days</option>
+                                        <option value="12m">Last 12 Months</option>
+                                    </select>
+                                    <button onclick="exportAWSCostsData()" class="btn btn-select-user">
+                                        Export Data
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Top Services by Cost -->
+                <div class="card" style="margin-top: 20px; position: relative;">
+                    <h2>Top AWS Services by Cost - Last 30 Days</h2>
+                    <button class="export-button" onclick="exportTopServicesTable()" title="Export to CSV">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        Export
+                    </button>
+                    <table id="top-services-table">
+                        <thead>
+                            <tr>
+                                <th>Service</th>
+                                <th>Category</th>
+                                <th>Current Month Cost</th>
+                                <th>Previous Month Cost</th>
+                                <th>Change (%)</th>
+                                <th>Trend</th>
+                                <th>% of Total</th>
+                                <th>Recommendation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="8">
+                                    <div class="loading-spinner"></div>
+                                    Loading AWS services cost data...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Daily AWS Cost Breakdown -->
+                <div class="card" style="margin-top: 20px; position: relative;">
+                    <h2>Daily AWS Cost Breakdown - Last 30 Days</h2>
+                    <button class="export-button" onclick="exportDailyCostsTable()" title="Export to CSV">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        Export
+                    </button>
+                    <table id="daily-costs-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Total Cost</th>
+                                <th>Compute</th>
+                                <th>Storage</th>
+                                <th>Database</th>
+                                <th>Networking</th>
+                                <th>AI/ML</th>
+                                <th>Other</th>
+                                <th>Daily Change</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="9">
+                                    <div class="loading-spinner"></div>
+                                    Loading daily cost breakdown...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Cost Optimization Recommendations -->
+                <div class="card" style="margin-top: 20px; position: relative;">
+                    <h2>Cost Optimization Recommendations</h2>
+                    <button class="export-button" onclick="exportRecommendationsTable()" title="Export to CSV">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        Export
+                    </button>
+                    <table id="recommendations-table">
+                        <thead>
+                            <tr>
+                                <th>Service</th>
+                                <th>Issue Type</th>
+                                <th>Current Cost</th>
+                                <th>Potential Savings</th>
+                                <th>Priority</th>
+                                <th>Recommendation</th>
+                                <th>Implementation</th>
+                                <th>Risk Level</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="8">
+                                    <div class="loading-spinner"></div>
+                                    Analyzing cost optimization opportunities...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Charts Section -->
+                <div class="dashboard" style="margin-top: 20px;">
+                    <div class="card">
+                        <h2>AWS Cost Trend - Last 30 Days</h2>
+                        <div class="chart-container">
+                            <canvas id="aws-cost-trend-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h2>Service Cost Distribution</h2>
+                        <div class="chart-container">
+                            <canvas id="aws-service-distribution-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="dashboard" style="margin-top: 20px;">
+                    <div class="card">
+                        <h2>Monthly Cost Comparison</h2>
+                        <div class="chart-container">
+                            <canvas id="aws-monthly-comparison-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h2>Cost per Service Category</h2>
+                        <div class="chart-container">
+                            <canvas id="aws-category-cost-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Budget Alerts and Thresholds -->
+                <div class="card" style="margin-top: 20px; position: relative;">
+                    <h2>Budget Alerts & Thresholds</h2>
+                    <button class="export-button" onclick="exportBudgetAlertsTable()" title="Export to CSV">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        Export
+                    </button>
+                    <div class="admin-controls" style="margin-bottom: 2rem;">
+                        <div class="blocking-controls">
+                            <h3>Configure Budget Alerts</h3>
+                            <div class="block-form">
+                                <input type="number" id="monthly-budget" class="form-control" placeholder="Monthly Budget ($)" value="1000">
+                                <input type="number" id="warning-threshold" class="form-control" placeholder="Warning Threshold (%)" value="80">
+                                <input type="number" id="critical-threshold" class="form-control" placeholder="Critical Threshold (%)" value="95">
+                                <button onclick="updateBudgetThresholds()" class="btn btn-select-user">
+                                    Update Thresholds
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <table id="budget-alerts-table">
+                        <thead>
+                            <tr>
+                                <th>Budget Name</th>
+                                <th>Budget Amount</th>
+                                <th>Current Spend</th>
+                                <th>% Used</th>
+                                <th>Remaining</th>
+                                <th>Forecast</th>
+                                <th>Status</th>
+                                <th>Next Alert</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="8">
+                                    <div class="loading-spinner"></div>
+                                    Loading budget information...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard JavaScript Modules with cache busting -->
+    <script src="js/config.js?v=20250920-1430"></script>
+    <!-- Load both data services for migration compatibility -->
+    <script src="js/data-service.js?v=20250920-1430"></script>
+    <script src="js/mysql-data-service.js?v=20250920-1440"></script>
+    <script src="js/charts.js?v=20250920-1430"></script>
+    <script src="js/blocking.js?v=20250921-1600"></script>
+    <script src="js/cost-analysis-v2.js?v=20250921-1556"></script>
+    <script src="js/hourly-analytics.js?v=20250920-1430"></script>
+    <script src="js/aws-costs-control.js?v=20250924-1645"></script>
+    <script src="js/dashboard.js?v=20250920-1445"></script>
+    
+    <!-- Cost Integration Test (Development Only) -->
+    <!-- Uncomment the line below to run cost integration tests -->
+    <!-- <script src="test_cost_integration.js"></script> -->
+    
+    <script>
+        // Utility function to generate percentage indicators with growing color range
+        function createPercentageIndicator(percentage, includeText = true) {
+            // Parse percentage value if it's a string
+            const numericValue = typeof percentage === 'string' ? 
+                parseFloat(percentage.replace('%', '')) : percentage;
+            
+            // Determine the appropriate CSS class based on percentage ranges
+            let cssClass = 'percentage-indicator ';
+            
+            if (numericValue === 0) {
+                cssClass += 'zero';
+            } else if (numericValue === 100) {
+                cssClass += 'full';
+            } else if (numericValue > 0 && numericValue <= 25) {
+                cssClass += 'low';
+            } else if (numericValue > 25 && numericValue <= 50) {
+                cssClass += 'medium-low';
+            } else if (numericValue > 50 && numericValue <= 75) {
+                cssClass += 'medium';
+            } else if (numericValue > 75 && numericValue <= 90) {
+                cssClass += 'high';
+            } else if (numericValue > 90) {
+                cssClass += 'critical';
+            }
+            
+            // Create the HTML element with proper data attributes and inline styling for the fill width
+            const displayText = includeText ? `${numericValue}%` : '';
+            return `<span class="${cssClass}" data-percentage="${numericValue}%" title="Usage: ${numericValue}%" style="--fill-width: ${numericValue}%"></span>`;
+        }
+        
+        // Helper function to wrap percentage values in tables
+        function wrapPercentageInTable(tableId, columnIndices) {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+            
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                columnIndices.forEach(colIndex => {
+                    const cell = row.cells[colIndex];
+                    if (cell && cell.textContent.includes('%')) {
+                        const percentageText = cell.textContent.trim();
+                        const percentageMatch = percentageText.match(/(\d+(?:\.\d+)?)%/);
+                        if (percentageMatch) {
+                            const percentage = parseFloat(percentageMatch[1]);
+                            cell.innerHTML = createPercentageIndicator(percentage);
+                        }
+                    }
+                });
+            });
+        }
+        
+        // Function to apply percentage indicators to all relevant tables
+        function applyPercentageIndicators() {
+            // User Usage Details table - Daily Usage (column 6) and Monthly Usage (column 9)
+            wrapPercentageInTable('user-usage-table', [6, 9]);
+            
+            // Team Usage Details table - Daily Usage (column 2) and Monthly Usage (column 5)
+            wrapPercentageInTable('team-usage-table', [2, 5]);
+            
+            // Users in Team table - % of Team Usage (column 4)
+            wrapPercentageInTable('team-users-table', [4]);
+            
+            // User Blocking Status table - Daily Usage (column 6)
+            wrapPercentageInTable('user-blocking-status-table', [6]);
+        }
+        
+        // Function to format percentage values in dynamic content
+        function formatPercentageValue(value) {
+            if (typeof value === 'string' && value.includes('%')) {
+                const numericValue = parseFloat(value.replace('%', ''));
+                return createPercentageIndicator(numericValue);
+            } else if (typeof value === 'number') {
+                return createPercentageIndicator(value);
+            }
+            return value;
+        }
+        
+        // Make functions globally available for use in other JavaScript files
+        window.createPercentageIndicator = createPercentageIndicator;
+        window.formatPercentageValue = formatPercentageValue;
+        window.applyPercentageIndicators = applyPercentageIndicators;
+        
+        // Apply percentage indicators when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Apply to existing static content
+            applyPercentageIndicators();
+            
+            // Set up a mutation observer to apply indicators to dynamically loaded content
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                        // Check if any table content was added
+                        mutation.addedNodes.forEach(function(node) {
+                            if (node.nodeType === Node.ELEMENT_NODE) {
+                                const tables = node.querySelectorAll ? 
+                                    node.querySelectorAll('table') : [];
+                                if (tables.length > 0 || node.tagName === 'TABLE') {
+                                    // Delay application to ensure content is fully rendered
+                                    setTimeout(applyPercentageIndicators, 100);
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+            
+            // Observe changes to table containers
+            const tableContainers = document.querySelectorAll('.card');
+            tableContainers.forEach(container => {
+                observer.observe(container, {
+                    childList: true,
+                    subtree: true
+                });
+            });
+        });
+    </script>
+</body>
+</html>

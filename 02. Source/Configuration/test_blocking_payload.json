@@ -1,0 +1,37 @@
+{
+  "version": "0",
+  "id": "test-blocking-verification",
+  "detail-type": "AWS API Call via CloudTrail",
+  "source": "aws.bedrock",
+  "account": "701055077130",
+  "time": "2025-09-20T16:06:40Z",
+  "region": "eu-west-1",
+  "resources": [],
+  "detail": {
+    "eventVersion": "1.11",
+    "userIdentity": {
+      "type": "IAMUser",
+      "principalId": "AIDA2GORDRMFNSQTZ4HLN",
+      "arn": "arn:aws:iam::701055077130:user/sap_003",
+      "accountId": "701055077130",
+      "userName": "sap_003"
+    },
+    "eventTime": "2025-09-20T16:06:40Z",
+    "eventSource": "bedrock.amazonaws.com",
+    "eventName": "InvokeModel",
+    "awsRegion": "eu-west-1",
+    "sourceIPAddress": "192.168.1.100",
+    "userAgent": "aws-cli/2.0.0",
+    "requestParameters": {
+      "modelId": "anthropic.claude-3-5-sonnet-20240620-v1:0"
+    },
+    "responseElements": null,
+    "requestID": "test-blocking-verification-123",
+    "eventID": "test-event-id-123",
+    "readOnly": true,
+    "eventType": "AwsApiCall",
+    "managementEvent": true,
+    "recipientAccountId": "701055077130",
+    "eventCategory": "Management"
+  }
+}

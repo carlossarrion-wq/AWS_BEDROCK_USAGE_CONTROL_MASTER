@@ -1,0 +1,120 @@
+{
+  "teams": {
+    "team_darwin_group": {
+      "critical_threshold": 85,
+      "monthly_limit": 25000,
+      "warning_threshold": 60
+    },
+    "team_lcorp_group": {
+      "critical_threshold": 85,
+      "monthly_limit": 25000,
+      "warning_threshold": 60
+    },
+    "team_mulesoft_group": {
+      "critical_threshold": 85,
+      "monthly_limit": 25000,
+      "warning_threshold": 60
+    },
+    "team_sap_group": {
+      "critical_threshold": 85,
+      "monthly_limit": 25000,
+      "warning_threshold": 60
+    },
+    "team_yo_leo_gas_group": {
+      "critical_threshold": 85,
+      "monthly_limit": 25000,
+      "warning_threshold": 60
+    },
+    "team_sdlc_group": {
+      "critical_threshold": 85,
+      "monthly_limit": 25000,
+      "warning_threshold": 60
+    }
+  },
+  "users": {
+    "darwin_001": {
+      "critical_threshold": 85,
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "team": "team_darwin_group",
+      "warning_threshold": 60
+    },
+    "darwin_002": {
+      "critical_threshold": 85,
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "team": "team_darwin_group",
+      "warning_threshold": 60
+    },
+    "lcorp_001": {
+      "critical_threshold": 85,
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "team": "team_lcorp_group",
+      "warning_threshold": 60
+    },
+    "lcorp_002": {
+      "critical_threshold": 85,
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "team": "team_lcorp_group",
+      "warning_threshold": 60
+    },
+    "mulesoft_001": {
+      "critical_threshold": 85,
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "team": "team_mulesoft_group",
+      "warning_threshold": 60
+    },
+    "mulesoft_002": {
+      "critical_threshold": 85,
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "team": "team_mulesoft_group",
+      "warning_threshold": 60
+    },
+    "sap_001": {
+      "critical_threshold": 85,
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "team": "team_sap_group",
+      "warning_threshold": 60
+    },
+    "sap_002": {
+      "critical_threshold": 85,
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "team": "team_sap_group",
+      "warning_threshold": 60
+    },
+    "sap_003": {
+      "critical_threshold": 85,
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "team": "team_sap_group",
+      "warning_threshold": 60
+    },
+    "sap_004": {
+      "critical_threshold": 200,
+      "daily_limit": 250,
+      "monthly_limit": 5000,
+      "team": "team_sap_group",
+      "warning_threshold": 150
+    },
+    "yo_leo_gas_001": {
+      "critical_threshold": 85,
+      "daily_limit": 9999,
+      "monthly_limit": 5000,
+      "team": "team_yo_leo_gas_group",
+      "warning_threshold": 60
+    },
+    "yo_leo_gas_002": {
+      "critical_threshold": 85,
+      "daily_limit": 350,
+      "monthly_limit": 5000,
+      "team": "team_yo_leo_gas_group",
+      "warning_threshold": 60
+    }
+  }
+}

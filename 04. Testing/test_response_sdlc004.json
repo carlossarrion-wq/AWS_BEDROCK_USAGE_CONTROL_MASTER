@@ -1,0 +1,1 @@
+{"statusCode": 200, "body": "{\"message\": \"User sdlc_004 blocked successfully\", \"action\": \"block\", \"user_id\": \"sdlc_004\", \"reason\": \"daily_limit_exceeded\", \"blocked_at\": \"2025-09-22T09:17:31.521079\"}"}

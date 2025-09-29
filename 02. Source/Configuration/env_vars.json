@@ -1,0 +1,9 @@
+{
+  "Variables": {
+    "DYNAMODB_TABLE": "bedrock_user_daily_usage",
+    "SNS_TOPIC_ARN": "arn:aws:sns:eu-west-1:701055077130:bedrock-usage-alerts",
+    "POLICY_MANAGER_FUNCTION": "bedrock-policy-manager",
+    "ACCOUNT_ID": "701055077130",
+    "EMAIL_NOTIFICATIONS_ENABLED": "true"
+  }
+}
