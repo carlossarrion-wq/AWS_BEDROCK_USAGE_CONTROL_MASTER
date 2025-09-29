@@ -1141,9 +1141,9 @@ async function performDynamicAction() {
                 const blockQuery = `
                     INSERT INTO bedrock_usage.user_blocking_status 
                     (user_id, is_blocked, blocked_reason, blocked_at, blocked_until, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    VALUES (?, 'Y', ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
-                    is_blocked = VALUES(is_blocked),
+                    is_blocked = 'Y',
                     blocked_reason = VALUES(blocked_reason),
                     blocked_at = VALUES(blocked_at),
                     blocked_until = VALUES(blocked_until)
@@ -1153,7 +1153,7 @@ async function performDynamicAction() {
                     username, reason, currentCETString, blockUntilCET, currentCETString
                 });
                 
-                await window.mysqlDataService.executeQuery(blockQuery, [username, 'Y', reason, currentCETString, blockUntilCET, currentCETString]);
+                await window.mysqlDataService.executeQuery(blockQuery, [username, reason, currentCETString, blockUntilCET, currentCETString]);
                 
                 console.log(`🔧 DEBUG performDynamicAction BLOCK: Block query executed successfully`);
                 
