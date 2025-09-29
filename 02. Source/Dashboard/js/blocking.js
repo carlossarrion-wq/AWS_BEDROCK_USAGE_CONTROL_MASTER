@@ -308,6 +308,9 @@ async function performManualBlock() {
     const duration = blockDuration.value;
     const reason = blockReason.value;
     
+    // DEBUG: Log all form values
+    console.log(`🔧 DEBUG performManualBlock: username="${username}", duration="${duration}", reason="${reason}"`);
+    
     if (!username) {
         updateConnectionStatus('error', 'Please select a user to block');
         return;
@@ -321,6 +324,8 @@ async function performManualBlock() {
     try {
         // Calculate expiration date
         const expiresAt = calculateExpirationDate(duration);
+        console.log(`🔧 DEBUG performManualBlock: calculated expiresAt="${expiresAt}"`);
+        
         if (duration === 'custom' && !expiresAt) {
             updateConnectionStatus('error', 'Please select a custom date and time');
             return;
@@ -356,6 +361,7 @@ async function performManualBlock() {
             
             // Get CET timestamp for blocking operations - FIXED: Store CET values directly in database
             const cetTimestamp = getCurrentCETTimestamp();
+            console.log(`🔧 DEBUG performManualBlock: cetTimestamp="${cetTimestamp}"`);
             
             // Convert expiration date to CET format if it's not indefinite
             let blockUntilCET = null;
@@ -363,6 +369,9 @@ async function performManualBlock() {
                 // Convert the expiration date to CET format for database storage
                 const expirationDate = new Date(expiresAt);
                 blockUntilCET = convertDateToCETString(expirationDate);
+                console.log(`🔧 DEBUG performManualBlock: expirationDate="${expirationDate.toISOString()}", blockUntilCET="${blockUntilCET}"`);
+            } else {
+                console.log(`🔧 DEBUG performManualBlock: indefinite blocking, blockUntilCET=null`);
             }
             
             // Insert or update user blocking status with requests_at_blocking - FIXED: Store CET timestamps directly
@@ -379,7 +388,13 @@ async function performManualBlock() {
                 updated_at = VALUES(updated_at)
             `;
             
+            console.log(`🔧 DEBUG performManualBlock: Executing blockQuery with params:`, {
+                username, reason, cetTimestamp, blockUntilCET, dailyUsage
+            });
+            
             await window.mysqlDataService.executeQuery(blockQuery, [username, reason, cetTimestamp, blockUntilCET, dailyUsage, cetTimestamp, cetTimestamp]);
+            
+            console.log(`🔧 DEBUG performManualBlock: Block query executed successfully`);
             
             // Insert audit log entry with CET timestamp and usage data - FIXED: Store CET timestamps directly
             const auditQuery = `
@@ -524,21 +539,26 @@ async function blockUser(username) {
                 console.log(`🔧 Using duration from prompt: ${duration}`);
             }
             
-            // Calculate expiration date using the same logic as other blocking functions
-            const expiresAt = calculateExpirationDate(duration);
-            if (duration === 'custom' && !expiresAt) {
-                alert('Custom duration not supported from table buttons. Please use the manual blocking form above.');
-                return;
-            }
+        // Calculate expiration date using the same logic as other blocking functions
+        const expiresAt = calculateExpirationDate(duration);
+        console.log(`🔧 DEBUG blockUser: calculated expiresAt="${expiresAt}" for duration="${duration}"`);
+        
+        if (duration === 'custom' && !expiresAt) {
+            alert('Custom duration not supported from table buttons. Please use the manual blocking form above.');
+            return;
+        }
             
             const currentCETString = getCurrentCETTimestamp();
             
-            // Convert expiration date to CET format if it's not indefinite
-            let blockUntilCET = null;
-            if (expiresAt !== 'Indefinite') {
-                const expirationDate = new Date(expiresAt);
-                blockUntilCET = convertDateToCETString(expirationDate);
-            }
+        // Convert expiration date to CET format if it's not indefinite
+        let blockUntilCET = null;
+        if (expiresAt !== 'Indefinite') {
+            const expirationDate = new Date(expiresAt);
+            blockUntilCET = convertDateToCETString(expirationDate);
+            console.log(`🔧 DEBUG blockUser: expirationDate="${expirationDate.toISOString()}", blockUntilCET="${blockUntilCET}"`);
+        } else {
+            console.log(`🔧 DEBUG blockUser: indefinite blocking, blockUntilCET=null`);
+        }
             
             // Insert or update user blocking status with CET timestamps
             const blockQuery = `
@@ -1095,6 +1115,8 @@ async function performDynamicAction() {
         
         // Calculate expiration date
         const expiresAt = calculateExpirationDate(duration);
+        console.log(`🔧 DEBUG performDynamicAction BLOCK: calculated expiresAt="${expiresAt}" for duration="${duration}"`);
+        
         if (duration === 'custom' && !expiresAt) {
             alert('Please select a custom date and time');
             return;
@@ -1111,6 +1133,9 @@ async function performDynamicAction() {
                 if (expiresAt !== 'Indefinite') {
                     const expirationDate = new Date(expiresAt);
                     blockUntilCET = convertDateToCETString(expirationDate);
+                    console.log(`🔧 DEBUG performDynamicAction BLOCK: expirationDate="${expirationDate.toISOString()}", blockUntilCET="${blockUntilCET}"`);
+                } else {
+                    console.log(`🔧 DEBUG performDynamicAction BLOCK: indefinite blocking, blockUntilCET=null`);
                 }
                 
                 const blockQuery = `
@@ -1124,7 +1149,13 @@ async function performDynamicAction() {
                     blocked_until = VALUES(blocked_until)
                 `;
                 
+                console.log(`🔧 DEBUG performDynamicAction BLOCK: Executing blockQuery with params:`, {
+                    username, reason, currentCETString, blockUntilCET
+                });
+                
                 await window.mysqlDataService.executeQuery(blockQuery, [username, reason, currentCETString, blockUntilCET, currentCETString]);
+                
+                console.log(`🔧 DEBUG performDynamicAction BLOCK: Block query executed successfully`);
                 
                 // Get current usage data for audit log - FIXED: Use same data source as Daily Usage tab
                 const fullDailyData = userMetrics[username]?.daily || Array(11).fill(0);
