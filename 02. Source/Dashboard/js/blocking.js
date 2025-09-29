@@ -1150,7 +1150,7 @@ async function performDynamicAction() {
                 `;
                 
                 console.log(`🔧 DEBUG performDynamicAction BLOCK: Executing blockQuery with params:`, {
-                    username, reason, currentCETString, blockUntilCET
+                    username, reason, currentCETString, blockUntilCET, currentCETString
                 });
                 
                 await window.mysqlDataService.executeQuery(blockQuery, [username, reason, currentCETString, blockUntilCET, currentCETString]);
