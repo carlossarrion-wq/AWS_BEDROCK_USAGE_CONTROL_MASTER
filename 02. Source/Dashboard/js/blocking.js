@@ -491,11 +491,25 @@ async function blockUser(username) {
     try {
         // Use MySQL database to perform blocking
         if (window.mysqlDataService) {
-            // Calculate expiration date (1 day from now) in CET
-            const currentCETTime = new Date();
-            const expirationCETTime = new Date(currentCETTime.getTime() + 24 * 60 * 60 * 1000);
-            const expiresAtCET = convertDateToCETString(expirationCETTime);
+            // Get duration from the upper controls
+            const blockDuration = document.getElementById('block-duration');
+            const duration = blockDuration ? blockDuration.value : '1day';
+            
+            // Calculate expiration date using the same logic as other blocking functions
+            const expiresAt = calculateExpirationDate(duration);
+            if (duration === 'custom' && !expiresAt) {
+                alert('Please select a custom date and time in the controls above');
+                return;
+            }
+            
             const currentCETString = getCurrentCETTimestamp();
+            
+            // Convert expiration date to CET format if it's not indefinite
+            let blockUntilCET = null;
+            if (expiresAt !== 'Indefinite') {
+                const expirationDate = new Date(expiresAt);
+                blockUntilCET = convertDateToCETString(expirationDate);
+            }
             
             // Insert or update user blocking status with CET timestamps
             const blockQuery = `
@@ -510,7 +524,7 @@ async function blockUser(username) {
                 updated_at = VALUES(updated_at)
             `;
             
-            await window.mysqlDataService.executeQuery(blockQuery, [username, reason, currentCETString, expiresAtCET, currentCETString, currentCETString]);
+            await window.mysqlDataService.executeQuery(blockQuery, [username, reason, currentCETString, blockUntilCET, currentCETString, currentCETString]);
             
             // Insert audit log entry with CET timestamp
             const auditQuery = `
