@@ -491,15 +491,16 @@ async function blockUser(username) {
     try {
         // Use MySQL database to perform blocking
         if (window.mysqlDataService) {
-            // Get duration from the upper controls - handle disabled state
+            // Get duration from the upper controls - always read the value first
             const blockDuration = document.getElementById('block-duration');
             let duration = '1day'; // Default fallback
             
-            if (blockDuration && !blockDuration.disabled) {
-                // Only use the control value if it's enabled (user has selected someone in dropdown)
+            if (blockDuration && blockDuration.value) {
+                // Always use the control value if it exists, regardless of disabled state
                 duration = blockDuration.value;
+                console.log(`🔧 Using duration from upper controls: ${duration}`);
             } else {
-                // If control is disabled, ask user for duration
+                // If no value in controls, ask user for duration
                 const userChoice = prompt(`Select blocking duration for ${username}:\n1 = 1 day\n30 = 30 days\n90 = 90 days\nindefinite = Indefinite\n\nEnter choice:`, '1');
                 if (!userChoice) return;
                 
@@ -520,6 +521,7 @@ async function blockUser(username) {
                         duration = '1day';
                         break;
                 }
+                console.log(`🔧 Using duration from prompt: ${duration}`);
             }
             
             // Calculate expiration date using the same logic as other blocking functions
