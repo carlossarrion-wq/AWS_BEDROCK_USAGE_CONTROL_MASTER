@@ -11,6 +11,11 @@ async function loadBlockingData() {
         console.log('Loading blocking management data...');
         showBlockingLoadingIndicators();
         
+        // CRITICAL FIX: Load real-time usage data to populate the realtimeUsage cache
+        console.log('🔄 Loading real-time usage data for blocking timestamps...');
+        await window.mysqlDataService.getRealtimeUsage(true);
+        console.log('✅ Real-time usage data loaded and cached');
+        
         // Load real blocking data from Lambda functions
         await loadUserBlockingStatus();
         await loadBlockingOperationsHistory();

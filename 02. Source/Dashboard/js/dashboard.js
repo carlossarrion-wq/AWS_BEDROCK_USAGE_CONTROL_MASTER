@@ -3256,12 +3256,12 @@ function renderUserBlockingPage() {
         let blockedSince = '-';
         let expires = '-';
         
-        // Check if user has blocking data from mysql-data-service
-        if (window.mysqlDataService && window.mysqlDataService.cache && window.mysqlDataService.cache.userBlockingData) {
-            const blockingData = window.mysqlDataService.cache.userBlockingData.data;
-            const userBlockingInfo = blockingData.find(user => user.userId === userData.username);
+        // Check if user has blocking data from mysql-data-service realtimeUsage cache
+        if (window.mysqlDataService && window.mysqlDataService.cache && window.mysqlDataService.cache.realtimeUsage) {
+            const realtimeData = window.mysqlDataService.cache.realtimeUsage.data;
+            const userBlockingInfo = realtimeData[userData.username];
             
-            if (userBlockingInfo && userBlockingInfo.isBlocked === 'Y') {
+            if (userBlockingInfo && userBlockingInfo.isBlocked) {
                 // Format blocked_at timestamp
                 if (userBlockingInfo.blockedAt) {
                     const blockedAtDate = new Date(userBlockingInfo.blockedAt);

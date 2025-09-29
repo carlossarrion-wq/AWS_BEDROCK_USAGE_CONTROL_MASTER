@@ -640,7 +640,6 @@ class BedrockMySQLDataService {
                     created_at,
                     updated_at
                 FROM bedrock_usage.user_blocking_status
-                WHERE updated_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)
                 ORDER BY updated_at DESC
             `;
             
