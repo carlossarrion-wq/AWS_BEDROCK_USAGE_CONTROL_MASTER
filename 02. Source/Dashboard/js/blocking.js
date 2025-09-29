@@ -491,14 +491,41 @@ async function blockUser(username) {
     try {
         // Use MySQL database to perform blocking
         if (window.mysqlDataService) {
-            // Get duration from the upper controls
+            // Get duration from the upper controls - handle disabled state
             const blockDuration = document.getElementById('block-duration');
-            const duration = blockDuration ? blockDuration.value : '1day';
+            let duration = '1day'; // Default fallback
+            
+            if (blockDuration && !blockDuration.disabled) {
+                // Only use the control value if it's enabled (user has selected someone in dropdown)
+                duration = blockDuration.value;
+            } else {
+                // If control is disabled, ask user for duration
+                const userChoice = prompt(`Select blocking duration for ${username}:\n1 = 1 day\n30 = 30 days\n90 = 90 days\nindefinite = Indefinite\n\nEnter choice:`, '1');
+                if (!userChoice) return;
+                
+                switch(userChoice.toLowerCase()) {
+                    case '1':
+                        duration = '1day';
+                        break;
+                    case '30':
+                        duration = '30days';
+                        break;
+                    case '90':
+                        duration = '90days';
+                        break;
+                    case 'indefinite':
+                        duration = 'indefinite';
+                        break;
+                    default:
+                        duration = '1day';
+                        break;
+                }
+            }
             
             // Calculate expiration date using the same logic as other blocking functions
             const expiresAt = calculateExpirationDate(duration);
             if (duration === 'custom' && !expiresAt) {
-                alert('Please select a custom date and time in the controls above');
+                alert('Custom duration not supported from table buttons. Please use the manual blocking form above.');
                 return;
             }
             
