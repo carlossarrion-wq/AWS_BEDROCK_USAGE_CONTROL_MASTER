@@ -424,233 +424,9 @@ async function performManualBlock() {
     }
 }
 
-async function blockUser(username) {
-    const reason = prompt(`Enter reason for blocking ${username}:`);
-    if (!reason) return;
-    
-    try {
-        // Use MySQL database to perform blocking
-        if (window.mysqlDataService) {
-            // Get duration from the upper controls - always read the value first
-            const blockDuration = document.getElementById('block-duration');
-            let duration = '1day'; // Default fallback
-            
-            if (blockDuration && blockDuration.value) {
-                // Always use the control value if it exists, regardless of disabled state
-                duration = blockDuration.value;
-                console.log(`🔧 Using duration from upper controls: ${duration}`);
-            } else {
-                // If no value in controls, ask user for duration
-                const userChoice = prompt(`Select blocking duration for ${username}:\n1 = 1 day\n30 = 30 days\n90 = 90 days\nindefinite = Indefinite\n\nEnter choice:`, '1');
-                if (!userChoice) return;
-                
-                switch(userChoice.toLowerCase()) {
-                    case '1':
-                        duration = '1day';
-                        break;
-                    case '30':
-                        duration = '30days';
-                        break;
-                    case '90':
-                        duration = '90days';
-                        break;
-                    case 'indefinite':
-                        duration = 'indefinite';
-                        break;
-                    default:
-                        duration = '1day';
-                        break;
-                }
-                console.log(`🔧 Using duration from prompt: ${duration}`);
-            }
-            
-        // Calculate expiration date using the same logic as other blocking functions
-        const expiresAt = calculateExpirationDate(duration);
-        console.log(`🔧 DEBUG blockUser: calculated expiresAt="${expiresAt}" for duration="${duration}"`);
-        
-        if (duration === 'custom' && !expiresAt) {
-            alert('Custom duration not supported from table buttons. Please use the manual blocking form above.');
-            return;
-        }
-            
-            const currentCETString = getCurrentCETTimestamp();
-            
-        // Convert expiration date to CET format if it's not indefinite
-        let blockUntilCET = null;
-        if (expiresAt !== 'Indefinite') {
-            const expirationDate = new Date(expiresAt);
-            blockUntilCET = convertDateToCETString(expirationDate);
-            console.log(`🔧 DEBUG blockUser: expirationDate="${expirationDate.toISOString()}", blockUntilCET="${blockUntilCET}"`);
-        } else {
-            console.log(`🔧 DEBUG blockUser: indefinite blocking, blockUntilCET=null`);
-        }
-            
-            // Insert or update user blocking status with CET timestamps
-            const blockQuery = `
-                INSERT INTO bedrock_usage.user_blocking_status 
-                (user_id, is_blocked, blocked_reason, blocked_at, blocked_until, created_at, updated_at)
-                VALUES (?, 'Y', ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                is_blocked = 'Y',
-                blocked_reason = VALUES(blocked_reason),
-                blocked_at = VALUES(blocked_at),
-                blocked_until = VALUES(blocked_until),
-                updated_at = VALUES(updated_at)
-            `;
-            
-            await window.mysqlDataService.executeQuery(blockQuery, [username, reason, currentCETString, blockUntilCET, currentCETString, currentCETString]);
-            
-            // Insert audit log entry with CET timestamp
-            const auditQuery = `
-                INSERT INTO bedrock_usage.blocking_audit_log 
-                (user_id, operation_type, operation_reason, performed_by, new_status, operation_timestamp, created_at)
-                VALUES (?, 'ADMIN_BLOCK', ?, 'dashboard_admin', 'Y', ?, ?)
-            `;
-            
-            await window.mysqlDataService.executeQuery(auditQuery, [username, reason, currentCETString, currentCETString]);
-            
-            alert(`User ${username} has been blocked successfully`);
-            // Force complete refresh of blocking data
-            await loadBlockingData();
-        } else {
-            alert('Database connection not available');
-        }
-    } catch (error) {
-        console.error('Error blocking user:', error);
-        alert(`Error blocking user: ${error.message}`);
-    }
-}
-
-async function unblockUser(username) {
-    try {
-        // Use MySQL database to perform unblocking
-        if (window.mysqlDataService) {
-            // Get current usage data for audit log - FIXED: Use same data source as Daily Usage tab
-            const fullDailyData = userMetrics[username]?.daily || Array(11).fill(0);
-            const dailyUsage = fullDailyData[10] || 0; // Index 10 is today (same as Daily Usage tab)
-            
-            // FIXED: Get daily limit from database instead of quota_config.json
-            let dailyLimit = 350; // Default fallback
-            try {
-                if (window.mysqlDataService) {
-                    const limitsQuery = `
-                        SELECT daily_request_limit 
-                        FROM bedrock_usage.user_limits 
-                        WHERE user_id = ?
-                    `;
-                    const limitsResult = await window.mysqlDataService.executeQuery(limitsQuery, [username]);
-                    if (limitsResult.length > 0) {
-                        dailyLimit = limitsResult[0].daily_request_limit || 350;
-                    }
-                }
-            } catch (error) {
-                console.error(`Error fetching daily limit for unblock audit log for user ${username}:`, error);
-                // FIXED: Use default limit only, no fallback to quota config
-                dailyLimit = 350;
-            }
-            
-            const usagePercentage = dailyLimit > 0 ? Math.round((dailyUsage / dailyLimit) * 100) : 0;
-            
-            // Update user blocking status with CET timestamp
-            const currentCETString = getCurrentCETTimestamp();
-            const unblockQuery = `
-                UPDATE bedrock_usage.user_blocking_status 
-                SET is_blocked = 'N',
-                    blocked_reason = 'Manual unblock',
-                    blocked_at = NULL,
-                    blocked_until = NULL,
-                    last_reset_at = ?
-                WHERE user_id = ?
-            `;
-            
-            await window.mysqlDataService.executeQuery(unblockQuery, [currentCETString, username]);
-            
-            // Get CET timestamp for audit log
-            const cetTimestamp = getCurrentCETTimestamp();
-            
-            // Insert audit log entry with CET timestamp and usage data
-            const auditQuery = `
-                INSERT INTO bedrock_usage.blocking_audit_log 
-                (user_id, operation_type, operation_reason, performed_by, new_status, operation_timestamp, 
-                 daily_requests_at_operation, daily_limit_at_operation, usage_percentage, 
-                 iam_policy_updated, email_sent, created_at)
-                VALUES (?, 'ADMIN_UNBLOCK', 'Manual unblock', 'dashboard_admin', 'N', ?, ?, ?, ?, 'Y', 'Y', ?)
-            `;
-            
-            await window.mysqlDataService.executeQuery(auditQuery, [
-                username, cetTimestamp, dailyUsage, dailyLimit, usagePercentage, cetTimestamp
-            ]);
-            
-            // Set Administrative Safe flag for manual unblocks
-            const adminSafeQuery = `
-                INSERT INTO bedrock_usage.user_limits (user_id, administrative_safe, created_at, updated_at)
-                VALUES (?, 'Y', NOW(), NOW())
-                ON DUPLICATE KEY UPDATE
-                administrative_safe = 'Y',
-                updated_at = NOW()
-            `;
-            
-            await window.mysqlDataService.executeQuery(adminSafeQuery, [username]);
-            
-                // Call new merged Lambda function for IAM policy management
-                try {
-                    const lambda = new AWS.Lambda({ region: 'eu-west-1' });
-                    const policyPayload = {
-                        action: 'unblock',
-                        user_id: username,
-                        reason: 'Manual unblock',
-                        performed_by: 'dashboard_admin'
-                    };
-                    
-                    const policyResponse = await lambda.invoke({
-                        FunctionName: 'bedrock-realtime-usage-controller',
-                        InvocationType: 'RequestResponse',
-                        Payload: JSON.stringify(policyPayload)
-                    }).promise();
-                    
-                    const policyResult = JSON.parse(policyResponse.Payload);
-                    if (policyResult.statusCode !== 200) {
-                        console.error('Failed to update IAM policy for unblocking:', policyResult);
-                    } else {
-                        console.log('Successfully updated IAM policy for unblocking');
-                    }
-                } catch (error) {
-                    console.error('Error calling IAM policy management:', error);
-                }
-            
-            // Call email service Lambda function
-            try {
-                const emailResponse = await fetch('/api/lambda/bedrock-email-service', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        user_id: username,
-                        action: 'unblock',
-                        reason: 'Manual unblock',
-                        performed_by: 'dashboard_admin'
-                    })
-                });
-                
-                if (!emailResponse.ok) {
-                    console.error('Failed to send unblocking email notification');
-                }
-            } catch (error) {
-                console.error('Error calling email service:', error);
-            }
-            
-            alert(`User ${username} has been unblocked successfully`);
-            // Force complete refresh of blocking data
-            await loadBlockingData();
-        } else {
-            alert('Database connection not available');
-        }
-    } catch (error) {
-        console.error('Error unblocking user:', error);
-        alert(`Error unblocking user: ${error.message}`);
-    }
-}
+// REMOVED: blockUser() and unblockUser() functions
+// These functions made direct SQL calls and should not be used from the dashboard
+// All blocking/unblocking operations should go through the Lambda API via performDynamicAction()
 
 async function getUserStatus(username) {
     try {
@@ -907,126 +683,74 @@ async function performDynamicAction() {
     const isBlocked = userBlockingStatus[username] || false;
     
     if (isBlocked) {
-        // Unblock user using MySQL database
+        // FIXED: Unblock user using Lambda API
         try {
-            if (window.mysqlDataService) {
-                // Update user blocking status with CET timestamp
-                const currentCETString = getCurrentCETTimestamp();
-                const unblockQuery = `
-                    UPDATE bedrock_usage.user_blocking_status 
-                    SET is_blocked = 'N',
-                        blocked_reason = 'Manual unblock',
-                        blocked_at = NULL,
-                        blocked_until = NULL,
-                        last_reset_at = ?,
-                        updated_at = ?
-                    WHERE user_id = ?
-                `;
-                
-                await window.mysqlDataService.executeQuery(unblockQuery, [currentCETString, currentCETString, username]);
-                
-                // Get current usage data for audit log - FIXED: Use same data source as Daily Usage tab
-                const fullDailyData = userMetrics[username]?.daily || Array(11).fill(0);
-                const dailyUsage = fullDailyData[10] || 0; // Index 10 is today (same as Daily Usage tab)
-                
-                // FIXED: Get daily limit from database instead of quota_config.json
-                let dailyLimit = 350; // Default fallback
-                try {
-                    if (window.mysqlDataService) {
-                        const limitsQuery = `
-                            SELECT daily_request_limit 
-                            FROM bedrock_usage.user_limits 
-                            WHERE user_id = ?
-                        `;
-                        const limitsResult = await window.mysqlDataService.executeQuery(limitsQuery, [username]);
-                        if (limitsResult.length > 0) {
-                            dailyLimit = limitsResult[0].daily_request_limit || 350;
-                        }
+            console.log(`🚀 CALLING LAMBDA API for manual unblocking from dynamic action`);
+            
+            // Get current usage data for the Lambda payload
+            const fullDailyData = userMetrics[username]?.daily || Array(11).fill(0);
+            const dailyUsage = fullDailyData[10] || 0;
+            
+            // Get daily limit from database
+            let dailyLimit = 350;
+            try {
+                if (window.mysqlDataService) {
+                    const limitsQuery = `
+                        SELECT daily_request_limit 
+                        FROM bedrock_usage.user_limits 
+                        WHERE user_id = ?
+                    `;
+                    const limitsResult = await window.mysqlDataService.executeQuery(limitsQuery, [username]);
+                    if (limitsResult.length > 0) {
+                        dailyLimit = limitsResult[0].daily_request_limit || 350;
                     }
-                } catch (error) {
-                    console.error(`Error fetching daily limit for dynamic action audit log for user ${username}:`, error);
-                    // FIXED: Use default limit only, no fallback to quota config
-                    dailyLimit = 350;
                 }
-                
-                const usagePercentage = dailyLimit > 0 ? Math.round((dailyUsage / dailyLimit) * 100) : 0;
-                
-                // Get CET timestamp for audit log
-                const cetTimestamp = getCurrentCETTimestamp();
-                
-                // Insert audit log entry with CET timestamp and usage data
-                const auditQuery = `
-                    INSERT INTO bedrock_usage.blocking_audit_log 
-                    (user_id, operation_type, operation_reason, performed_by, new_status, operation_timestamp, 
-                     daily_requests_at_operation, daily_limit_at_operation, usage_percentage, 
-                     iam_policy_updated, email_sent, created_at)
-                    VALUES (?, 'ADMIN_UNBLOCK', ?, 'dashboard_admin', 'N', ?, ?, ?, ?, 'Y', 'Y', ?)
-                `;
-                
-                await window.mysqlDataService.executeQuery(auditQuery, [
-                    username, reason || 'Manual unblock', cetTimestamp, dailyUsage, dailyLimit, usagePercentage, cetTimestamp
-                ]);
-                
-                // Set Administrative Safe flag for manual unblocks
-                const adminSafeQuery = `
-                    INSERT INTO bedrock_usage.user_limits (user_id, administrative_safe, created_at, updated_at)
-                    VALUES (?, 'Y', NOW(), NOW())
-                    ON DUPLICATE KEY UPDATE
-                    administrative_safe = 'Y',
-                    updated_at = NOW()
-                `;
-                
-                await window.mysqlDataService.executeQuery(adminSafeQuery, [username]);
-                
-                // Call new merged Lambda function for IAM policy management
-                try {
-                    const lambda = new AWS.Lambda({ region: 'eu-west-1' });
-                    const policyPayload = {
-                        action: 'unblock',
-                        user_id: username,
-                        reason: reason || 'Manual unblock',
-                        performed_by: 'dashboard_admin'
-                    };
-                    
-                    const policyResponse = await lambda.invoke({
-                        FunctionName: 'bedrock-realtime-usage-controller',
-                        InvocationType: 'RequestResponse',
-                        Payload: JSON.stringify(policyPayload)
-                    }).promise();
-                    
-                    const policyResult = JSON.parse(policyResponse.Payload);
-                    if (policyResult.statusCode !== 200) {
-                        console.error('Failed to update IAM policy for unblocking:', policyResult);
-                    } else {
-                        console.log('Successfully updated IAM policy for unblocking');
-                    }
-                } catch (error) {
-                    console.error('Error calling IAM policy management:', error);
+            } catch (error) {
+                console.error(`Error fetching daily limit for user ${username}:`, error);
+                dailyLimit = 350;
+            }
+            
+            // Get user team for Lambda payload
+            let userTeam = "Unknown";
+            for (const team in usersByTeam) {
+                if (usersByTeam[team].includes(username)) {
+                    userTeam = team;
+                    break;
                 }
-                
-                // Call email service Lambda function
-                try {
-                    const emailResponse = await fetch('/api/lambda/bedrock-email-service', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            user_id: username,
-                            action: 'unblock',
-                            reason: reason || 'Manual unblock',
-                            performed_by: 'dashboard_admin'
-                        })
-                    });
-                    
-                    if (!emailResponse.ok) {
-                        console.error('Failed to send unblocking email notification');
-                    }
-                } catch (error) {
-                    console.error('Error calling email service:', error);
+            }
+            
+            // Prepare Lambda payload for manual unblocking
+            const lambdaPayload = {
+                action: 'unblock',
+                user_id: username,
+                reason: reason || 'Manual unblock',
+                performed_by: 'dashboard_admin',
+                usage_record: {
+                    request_count: dailyUsage,
+                    daily_limit: dailyLimit,
+                    team: userTeam,
+                    date: new Date().toISOString().split('T')[0]
                 }
+            };
+            
+            console.log(`🔧 DEBUG performDynamicAction UNBLOCK: Lambda payload:`, lambdaPayload);
+            console.log(`🔧 DEBUG performDynamicAction UNBLOCK: JSON.stringify of payload:`, JSON.stringify(lambdaPayload));
+            
+            // Call the Lambda function API
+            const lambda = new AWS.Lambda({ region: 'eu-west-1' });
+            const lambdaResponse = await lambda.invoke({
+                FunctionName: 'bedrock-realtime-usage-controller',
+                InvocationType: 'RequestResponse',
+                Payload: JSON.stringify(lambdaPayload)
+            }).promise();
+            
+            const lambdaResult = JSON.parse(lambdaResponse.Payload);
+            console.log(`🔧 DEBUG performDynamicAction UNBLOCK: Lambda response:`, lambdaResult);
+            
+            if (lambdaResult.statusCode === 200) {
+                alert(`User ${username} has been unblocked successfully via Lambda API`);
+                console.log(`✅ Successfully unblocked user ${username} using Lambda API`);
                 
-                alert(`User ${username} has been unblocked successfully`);
                 // Clear form
                 userSelect.value = '';
                 blockReason.value = '';
@@ -1035,11 +759,14 @@ async function performDynamicAction() {
                 // Force complete refresh of blocking data
                 await loadBlockingData();
             } else {
-                alert('Database connection not available');
+                const errorMessage = JSON.parse(lambdaResult.body).error || 'Unknown error';
+                alert(`Failed to unblock user: ${errorMessage}`);
+                console.error(`❌ Lambda unblocking failed:`, lambdaResult);
             }
+            
         } catch (error) {
-            console.error('Error unblocking user:', error);
-            alert(`Error unblocking user: ${error.message}`);
+            console.error('Error calling Lambda API for unblocking:', error);
+            alert(`Error unblocking user via Lambda API: ${error.message}`);
         }
     } else {
         // Block user
@@ -1051,6 +778,137 @@ async function performDynamicAction() {
         // Calculate expiration date
         const expiresAt = calculateExpirationDate(duration);
         console.log(`🔧 DEBUG performDynamicAction BLOCK: calculated expiresAt="${expiresAt}" for duration="${duration}"`);
+        
+        if (duration === 'custom' && !expiresAt) {
+            alert('Please select a custom date and time');
+            return;
+        }
+        
+        try {
+            // FIXED: Use Lambda API instead of direct database operations
+            console.log(`🚀 CALLING LAMBDA API for manual blocking from dynamic action`);
+            
+            // Get current usage data for the Lambda payload
+            const fullDailyData = userMetrics[username]?.daily || Array(11).fill(0);
+            const dailyUsage = fullDailyData[10] || 0;
+            
+            // Get daily limit from database
+            let dailyLimit = 350;
+            try {
+                if (window.mysqlDataService) {
+                    const limitsQuery = `
+                        SELECT daily_request_limit 
+                        FROM bedrock_usage.user_limits 
+                        WHERE user_id = ?
+                    `;
+                    const limitsResult = await window.mysqlDataService.executeQuery(limitsQuery, [username]);
+                    if (limitsResult.length > 0) {
+                        dailyLimit = limitsResult[0].daily_request_limit || 350;
+                    }
+                }
+            } catch (error) {
+                console.error(`Error fetching daily limit for user ${username}:`, error);
+                dailyLimit = 350;
+            }
+            
+            // Get user team for Lambda payload
+            let userTeam = "Unknown";
+            for (const team in usersByTeam) {
+                if (usersByTeam[team].includes(username)) {
+                    userTeam = team;
+                    break;
+                }
+            }
+            
+            // Prepare Lambda payload for manual blocking
+            const lambdaPayload = {
+                action: 'block',
+                user_id: username,
+                reason: reason,
+                performed_by: 'dashboard_admin',
+                duration: duration,
+                expires_at: expiresAt,
+                usage_record: {
+                    request_count: dailyUsage,
+                    daily_limit: dailyLimit,
+                    team: userTeam,
+                    date: new Date().toISOString().split('T')[0]
+                }
+            };
+            
+            console.log(`🔧 DEBUG performDynamicAction BLOCK: Lambda payload:`, lambdaPayload);
+            console.log(`🔧 DEBUG performDynamicAction BLOCK: Lambda payload expires_at specifically:`, lambdaPayload.expires_at);
+            console.log(`🔧 DEBUG performDynamicAction BLOCK: JSON.stringify of payload:`, JSON.stringify(lambdaPayload));
+            
+            // Call the Lambda function API
+            const lambda = new AWS.Lambda({ region: 'eu-west-1' });
+            const lambdaResponse = await lambda.invoke({
+                FunctionName: 'bedrock-realtime-usage-controller',
+                InvocationType: 'RequestResponse',
+                Payload: JSON.stringify(lambdaPayload)
+            }).promise();
+            
+            const lambdaResult = JSON.parse(lambdaResponse.Payload);
+            console.log(`🔧 DEBUG performDynamicAction BLOCK: Lambda response:`, lambdaResult);
+            
+            if (lambdaResult.statusCode === 200) {
+                alert(`User ${username} has been blocked successfully via Lambda API`);
+                console.log(`✅ Successfully blocked user ${username} using Lambda API`);
+                
+                // Clear form
+                userSelect.value = '';
+                blockReason.value = '';
+                blockDuration.value = '1day';
+                document.getElementById('custom-datetime').style.display = 'none';
+                // Reset custom option text
+                const customOption = blockDuration.querySelector('option[value="custom"]');
+                if (customOption) {
+                    customOption.text = 'Custom';
+                }
+                // Update button state
+                updateDynamicButton();
+                // Force complete refresh of blocking data
+                await loadBlockingData();
+            } else {
+                const errorMessage = JSON.parse(lambdaResult.body).error || 'Unknown error';
+                alert(`Failed to block user: ${errorMessage}`);
+                console.error(`❌ Lambda blocking failed:`, lambdaResult);
+            }
+            
+        } catch (error) {
+            console.error('Error calling Lambda API for blocking:', error);
+            alert(`Error blocking user via Lambda API: ${error.message}`);
+        }
+    }
+}
+
+// DEPRECATED: Old function that blocks directly in MySQL - kept for reference but should not be used
+async function performDynamicActionOldMySQL() {
+    const userSelect = document.getElementById('user-select');
+    const blockDuration = document.getElementById('block-duration');
+    const blockReason = document.getElementById('block-reason');
+    const dynamicBtn = document.getElementById('dynamic-action-btn');
+    
+    const username = userSelect.value;
+    const duration = blockDuration.value;
+    const reason = blockReason.value;
+    
+    if (!username) {
+        alert('Please select a user');
+        return;
+    }
+    
+    const isBlocked = userBlockingStatus[username] || false;
+    
+    if (!isBlocked) {
+        // Block user - OLD MYSQL METHOD
+        if (!reason) {
+            alert('Please provide a reason for blocking');
+            return;
+        }
+        
+        // Calculate expiration date
+        const expiresAt = calculateExpirationDate(duration);
         
         if (duration === 'custom' && !expiresAt) {
             alert('Please select a custom date and time');
