@@ -1351,3 +1351,156 @@ function calculateCorrelationTrendLine(data) {
         { x: maxX, y: slope * maxX + intercept }
     ];
 }
+
+// NEW: Function to update model consumption evolution chart
+function updateModelConsumptionEvolutionChart(modelData) {
+    const canvas = document.getElementById('model-consumption-evolution-chart');
+    if (!canvas) {
+        console.warn('⚠️ Canvas element model-consumption-evolution-chart not found, skipping chart update');
+        return;
+    }
+    
+    console.log('📊 Updating model consumption evolution chart with data:', modelData);
+    
+    // Create date labels for the last 10 days
+    const dateLabels = [];
+    const cetToday = new Date();
+    
+    for (let i = 9; i >= 0; i--) {
+        const date = new Date(cetToday);
+        date.setDate(date.getDate() - i);
+        
+        if (i === 0) {
+            dateLabels.push('Today');
+        } else {
+            dateLabels.push(moment(date).format('D MMM'));
+        }
+    }
+    
+    // Define color palette for different models (matching the style from the provided image)
+    const colorPalette = [
+        { bg: 'rgba(168, 213, 186, 0.6)', border: 'rgba(129, 199, 132, 1)' },      // Soft mint green
+        { bg: 'rgba(100, 149, 237, 0.6)', border: 'rgba(70, 130, 220, 1)' },       // Cornflower blue
+        { bg: 'rgba(255, 165, 79, 0.6)', border: 'rgba(255, 140, 50, 1)' },        // Orange
+        { bg: 'rgba(135, 206, 250, 0.6)', border: 'rgba(100, 180, 230, 1)' },      // Light sky blue
+        { bg: 'rgba(147, 112, 219, 0.6)', border: 'rgba(130, 90, 200, 1)' },       // Medium purple
+        { bg: 'rgba(192, 192, 192, 0.6)', border: 'rgba(160, 160, 160, 1)' },      // Silver
+        { bg: 'rgba(211, 211, 211, 0.6)', border: 'rgba(180, 180, 180, 1)' },      // Light gray
+        { bg: 'rgba(144, 238, 144, 0.6)', border: 'rgba(120, 220, 120, 1)' },      // Light green
+        { bg: 'rgba(255, 182, 193, 0.6)', border: 'rgba(255, 150, 170, 1)' },      // Light pink
+        { bg: 'rgba(221, 160, 221, 0.6)', border: 'rgba(200, 130, 200, 1)' }       // Plum
+    ];
+    
+    // Create datasets for each model
+    const datasets = [];
+    const modelNames = Object.keys(modelData);
+    
+    modelNames.forEach((modelName, index) => {
+        const modelDataArray = modelData[modelName];
+        const colorIndex = index % colorPalette.length;
+        const colors = colorPalette[colorIndex];
+        
+        datasets.push({
+            label: modelName,
+            data: modelDataArray,
+            backgroundColor: colors.bg,
+            borderColor: colors.border,
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            pointBackgroundColor: colors.border,
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 2
+        });
+    });
+    
+    const chartData = {
+        labels: dateLabels,
+        datasets: datasets
+    };
+    
+    if (window.modelConsumptionEvolutionChart) {
+        window.modelConsumptionEvolutionChart.data = chartData;
+        window.modelConsumptionEvolutionChart.update();
+    } else {
+        try {
+            window.modelConsumptionEvolutionChart = new Chart(canvas, {
+                type: 'line',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                boxWidth: 12,
+                                padding: 15,
+                                usePointStyle: true
+                            }
+                        },
+                        title: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.dataset.label || '';
+                                    const value = context.parsed.y;
+                                    return `${label}: ${value.toLocaleString()} requests`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Date',
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            },
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            display: true,
+                            stacked: false,
+                            title: {
+                                display: true,
+                                text: 'Requests',
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            },
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            console.log('✅ Model consumption evolution chart created successfully');
+        } catch (error) {
+            console.error('❌ Error creating model consumption evolution chart:', error);
+        }
+    }
+}

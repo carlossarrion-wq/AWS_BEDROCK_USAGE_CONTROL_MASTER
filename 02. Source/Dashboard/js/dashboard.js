@@ -1883,6 +1883,9 @@ async function loadModelUsageData() {
                     <td colspan="100%">No model usage data found in database</td>
                 </tr>
             `;
+            
+            // Update chart with empty data
+            updateModelConsumptionEvolutionChart({});
             return;
         }
         
@@ -2001,6 +2004,9 @@ async function loadModelUsageData() {
         console.log('📈 TRANSPOSED Model usage - Team totals:', teamTotals, `Grand total: ${grandTotal}`);
         console.log('✅ Model usage table now shows REAL data with MODELS AS ROWS and TEAMS AS COLUMNS!');
         
+        // NEW: Update the model consumption evolution chart
+        await loadModelConsumptionEvolutionChart();
+        
     } catch (error) {
         console.error('❌ Error loading dynamic model usage data:', error);
         tableBody.innerHTML = `
@@ -2008,6 +2014,104 @@ async function loadModelUsageData() {
                 <td colspan="100%">Error loading model usage data: ${error.message}</td>
             </tr>
         `;
+        
+        // Update chart with empty data on error
+        updateModelConsumptionEvolutionChart({});
+    }
+}
+
+// NEW: Function to load model consumption evolution chart data
+async function loadModelConsumptionEvolutionChart() {
+    try {
+        console.log('📊 Loading MODEL consumption evolution chart data (by AI model, not team)...');
+        
+        // Check if the canvas element exists
+        const canvas = document.getElementById('model-consumption-evolution-chart');
+        if (!canvas) {
+            console.warn('⚠️ Canvas element model-consumption-evolution-chart not found, skipping chart');
+            return;
+        }
+        
+        // Query MySQL for daily model usage over the last 10 days
+        // Group by DATE(request_timestamp) and model_id
+        const query = `
+            SELECT 
+                DATE(request_timestamp) as request_date,
+                model_id,
+                COUNT(*) as request_count
+            FROM bedrock_usage.bedrock_requests
+            WHERE request_timestamp >= DATE_SUB(CURDATE(), INTERVAL 10 DAY)
+            GROUP BY DATE(request_timestamp), model_id
+            ORDER BY request_date ASC, model_id ASC
+        `;
+        
+        console.log('📊 Executing query for model consumption evolution:', query);
+        const results = await window.mysqlDataService.executeQuery(query);
+        
+        console.log('📊 Raw query results:', results);
+        
+        if (!results || results.length === 0) {
+            console.warn('⚠️ No model consumption data found for the last 10 days');
+            updateModelConsumptionEvolutionChart({});
+            return;
+        }
+        
+        // Get unique model IDs and create a clean display name
+        const uniqueModels = [...new Set(results.map(row => row.model_id))].sort();
+        console.log('🎯 Unique models found:', uniqueModels);
+        
+        // Prepare data structure: { 'Model Name': [day0, day1, ..., day9] }
+        const modelData = {};
+        
+        // Initialize arrays for each model (10 days)
+        uniqueModels.forEach(modelId => {
+            // Clean up model name - get only the last part after "/"
+            const displayName = modelId.includes('/') ? modelId.split('/').pop() : modelId;
+            modelData[displayName] = Array(10).fill(0);
+        });
+        
+        // Get the date range for the last 10 days
+        const dates = [];
+        for (let i = 9; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            dates.push(date.toISOString().split('T')[0]); // YYYY-MM-DD format
+        }
+        
+        console.log('📅 Date range for chart:', dates);
+        
+        // Populate the data arrays
+        results.forEach(row => {
+            const requestDate = row.request_date;
+            const modelId = row.model_id;
+            const requestCount = parseInt(row.request_count) || 0;
+            
+            // Find the index for this date in our 10-day range
+            const dateIndex = dates.indexOf(requestDate);
+            
+            if (dateIndex !== -1) {
+                // Clean up model name
+                const displayName = modelId.includes('/') ? modelId.split('/').pop() : modelId;
+                
+                if (modelData[displayName]) {
+                    modelData[displayName][dateIndex] = requestCount;
+                }
+            }
+        });
+        
+        console.log('📊 Final model consumption evolution data:', modelData);
+        console.log('📊 Data structure: Each model has 10 values representing daily request counts');
+        
+        // Update the chart
+        updateModelConsumptionEvolutionChart(modelData);
+        
+        console.log('✅ Model consumption evolution chart updated successfully with REAL MODEL DATA');
+        
+    } catch (error) {
+        console.error('❌ Error loading model consumption evolution chart:', error);
+        
+        // Update chart with empty data on error
+        updateModelConsumptionEvolutionChart({});
     }
 }
 
