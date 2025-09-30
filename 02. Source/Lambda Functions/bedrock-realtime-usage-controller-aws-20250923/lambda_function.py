@@ -683,15 +683,15 @@ def execute_user_unblocking(connection, user_id: str) -> bool:
         except Exception as e:
             logger.error(f"❌ Step 3 EXCEPTION: IAM policy modification for unblocking {user_id}: {str(e)}")
         
-        # 4. Send unblocking Gmail
+        # 4. Send enhanced unblocking email via Lambda service
         try:
-            success = send_unblocking_email_gmail(user_id)
+            success = send_enhanced_unblocking_email(user_id, 'Automatic unblock', 'system')
             if success:
-                logger.info(f"✅ Step 4: Sent unblocking Gmail for {user_id}")
+                logger.info(f"✅ Step 4: Sent enhanced unblocking email for {user_id}")
             else:
-                logger.error(f"❌ Step 4 FAILED: Gmail sending for unblocking {user_id}")
+                logger.error(f"❌ Step 4 FAILED: Enhanced email sending for unblocking {user_id}")
         except Exception as e:
-            logger.error(f"❌ Step 4 EXCEPTION: Gmail sending for unblocking {user_id}: {str(e)}")
+            logger.error(f"❌ Step 4 EXCEPTION: Enhanced email sending for unblocking {user_id}: {str(e)}")
         
         logger.info(f"✅ Successfully executed complete unblocking for user {user_id}")
         return True
