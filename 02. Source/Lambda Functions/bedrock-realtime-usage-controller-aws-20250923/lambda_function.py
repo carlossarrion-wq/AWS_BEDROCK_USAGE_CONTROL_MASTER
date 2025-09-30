@@ -274,7 +274,7 @@ def parse_bedrock_event(event: Dict[str, Any]) -> Dict[str, Any]:
         
         event_name = event.get('eventName', '')
         user_identity = event.get('userIdentity', {})
-        request_parameters = event.get('requestParameters', {})
+        request_parameters = event.get('requestParameters')
         source_ip = event.get('sourceIPAddress', '')
         user_agent = event.get('userAgent', '')
         request_id = event.get('requestID', '')
@@ -294,6 +294,11 @@ def parse_bedrock_event(event: Dict[str, Any]) -> Dict[str, Any]:
             return None
         
         logger.info(f"✅ Extracted user ID: {user_id}")
+        
+        # CORRECCIÓN CRÍTICA: Check if request_parameters is None before accessing it
+        if request_parameters is None:
+            logger.warning(f"❌ request_parameters is None for user {user_id}, event {event_name}")
+            return None
         
         model_id = request_parameters.get('modelId', '')
         if not model_id:
@@ -1309,13 +1314,19 @@ def handle_cloudtrail_event(event: Dict[str, Any], context: Any) -> Dict[str, An
             try:
                 logger.info(f"🔍 Processing event {i+1}/{len(events_to_process)}")
                 
-                request_data = parse_bedrock_event(detail)
-                if not request_data:
-                    logger.warning(f"❌ Failed to parse request data for event {i+1}")
+                # CORRECCIÓN CRÍTICA: Extract user_id FIRST before full parsing
+                # This allows us to check blocking status even if request_parameters is None
+                user_identity = detail.get('userIdentity', {})
+                user_arn = user_identity.get('arn', '')
+                user_id = extract_user_from_arn(user_arn)
+                
+                if not user_id:
+                    logger.warning(f"❌ Could not extract user ID from event {i+1}")
                     continue
                 
-                user_id = request_data['user_id']
+                logger.info(f"✅ Extracted user ID: {user_id} for event {i+1}")
                 
+                # Get user metadata
                 team = get_user_team(user_id)
                 person = get_user_person_tag(user_id)
                 
@@ -1328,19 +1339,25 @@ def handle_cloudtrail_event(event: Dict[str, Any], context: Any) -> Dict[str, An
                 ensure_user_exists(connection, user_id, team, person)
                 
                 # 1. ALWAYS check if user is currently blocked and handle automatic unblocking
-                # This must happen BEFORE checking administrative protection
+                # This must happen BEFORE parsing the full event
                 is_blocked, block_reason = check_user_blocking_status(connection, user_id)
                 
-                # CORRECCIÓN: If user was unblocked automatically, increment counters and process request
+                # CORRECCIÓN: If user was unblocked automatically, increment counters
                 if block_reason == 'expired':
                     unblocked_requests += 1
                     logger.info(f"✅ User {user_id} was automatically unblocked due to expiration")
-                    # Continue processing the request since user is now unblocked
+                    # Continue to parse and process the request since user is now unblocked
                 elif is_blocked:
                     logger.warning(f"🚫 User {user_id} is currently blocked: {block_reason}")
                     continue  # Don't process requests from blocked users
                 
-                # 2. Check if user should be blocked (with administrative protection)
+                # 2. NOW parse the full event (after checking blocking status)
+                request_data = parse_bedrock_event(detail)
+                if not request_data:
+                    logger.warning(f"❌ Failed to parse full request data for event {i+1}, but user {user_id} blocking status was checked")
+                    continue
+                
+                # 3. Check if user should be blocked (with administrative protection)
                 should_block, new_block_reason, usage_info = check_user_limits_with_protection(connection, user_id)
                 
                 if should_block:
@@ -1358,7 +1375,7 @@ def handle_cloudtrail_event(event: Dict[str, Any], context: Any) -> Dict[str, An
                     # Don't log the request that triggered the block
                     continue
                 
-                # 3. Log the request normally
+                # 4. Log the request normally
                 log_bedrock_request_cet(connection, request_data, team, person)
                 processed_requests += 1
                 
