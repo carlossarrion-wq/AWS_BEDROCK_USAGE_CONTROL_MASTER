@@ -1,31 +1,39 @@
 // Cost Analysis V2 - Using Centralized Data Service
 // This version uses the BedrockDataService for consistent data access
 
-// Calculate monthly cost from day 1 to current date
+// Calculate monthly cost from day 1 to yesterday (today-1)
 async function calculateMonthlyCost(costData) {
+    console.log('💰 [MONTHLY COST] Function called with costData:', costData ? Object.keys(costData) : 'null/undefined');
+    
     try {
-        console.log('💰 Calculating monthly cost from day 1 to current date...');
+        console.log('💰 Calculating monthly cost from day 1 to yesterday (today-1)...');
         
         // Get current date and first day of month
         const now = new Date();
         const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const currentDay = now.getDate();
         
-        console.log(`📅 Current month: ${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`);
-        console.log(`📅 Days to calculate: 1 to ${currentDay} (${currentDay} days total)`);
+        // Calculate yesterday's date for the end date
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const daysToCalculate = yesterday.getDate(); // Number of days from 1 to yesterday
         
-        if (!isConnectedToAWS) {
-            throw new Error('Not connected to AWS');
-        }
+        console.log(`📅 Current month: ${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`);
+        console.log(`📅 Today is day ${currentDay}, calculating costs from day 1 to day ${daysToCalculate} (yesterday)`);
+        console.log(`📅 Days to calculate: 1 to ${daysToCalculate} (${daysToCalculate} days total)`);
+        
+        // ALWAYS use fallback estimation - AWS Cost Explorer has 24-48h delay
+        console.log('💰 Using fallback estimation (AWS Cost Explorer has 24-48h delay)...');
+        throw new Error('Using fallback estimation for real-time data');
         
         // Use Cost Explorer to get monthly data
         const costExplorer = new AWS.CostExplorer({ region: 'us-east-1' });
         
         // Format dates for AWS API (YYYY-MM-DD)
         const startDateStr = firstDayOfMonth.toISOString().split('T')[0];
-        const endDateStr = now.toISOString().split('T')[0];
+        const endDateStr = yesterday.toISOString().split('T')[0];
         
-        console.log(`💰 Fetching monthly cost data from ${startDateStr} to ${endDateStr}`);
+        console.log(`💰 Fetching monthly cost data from ${startDateStr} to ${endDateStr} (excluding today)`);
         
         // STEP 1: Dynamic Service Discovery for monthly data
         const allServices = await costExplorer.getDimensionValues({
@@ -71,27 +79,43 @@ async function calculateMonthlyCost(costData) {
         const monthlyData = await costExplorer.getCostAndUsage(params).promise();
         console.log('✅ Monthly cost data fetched:', monthlyData);
         
-        // Process monthly data
+        // Process monthly data - Filter by date string to avoid timezone issues
         let totalMonthlyCost = 0;
+        const currentMonthStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+        
+        console.log(`📅 Current month string for filtering: ${currentMonthStr}`);
         
         if (monthlyData.ResultsByTime && monthlyData.ResultsByTime.length > 0) {
             monthlyData.ResultsByTime.forEach(timeResult => {
-                if (timeResult.Groups && timeResult.Groups.length > 0) {
-                    timeResult.Groups.forEach(group => {
-                        const cost = parseFloat(group.Metrics.BlendedCost.Amount) || 0;
-                        totalMonthlyCost += cost;
-                    });
+                const dateStr = timeResult.TimePeriod.Start; // Format: YYYY-MM-DD
+                const dateMonthStr = dateStr.substring(0, 7); // Extract YYYY-MM
+                
+                console.log(`📅 Processing date: ${dateStr} (Month: ${dateMonthStr})`);
+                
+                // ONLY include costs from the current month by comparing YYYY-MM strings
+                if (dateMonthStr === currentMonthStr) {
+                    if (timeResult.Groups && timeResult.Groups.length > 0) {
+                        timeResult.Groups.forEach(group => {
+                            const cost = parseFloat(group.Metrics.BlendedCost.Amount) || 0;
+                            console.log(`  ✅ Including cost: $${cost.toFixed(2)} (matches current month ${currentMonthStr})`);
+                            totalMonthlyCost += cost;
+                        });
+                    }
+                } else {
+                    console.log(`  ⏭️ Skipping date (month ${dateMonthStr} doesn't match current month ${currentMonthStr})`);
                 }
             });
         }
         
-        const dailyAverage = currentDay > 0 ? totalMonthlyCost / currentDay : 0;
+        console.log(`💰 Total monthly cost (current month ${currentMonthStr} only): $${totalMonthlyCost.toFixed(2)}`);
         
-        // Calculate comparison with last month (same period)
+        const dailyAverage = daysToCalculate > 0 ? totalMonthlyCost / daysToCalculate : 0;
+        
+        // Calculate comparison with last month (same period - also excluding today)
         let lastMonthComparison = 0;
         try {
             const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            const lastMonthEnd = new Date(now.getFullYear(), now.getMonth() - 1, currentDay);
+            const lastMonthEnd = new Date(now.getFullYear(), now.getMonth() - 1, daysToCalculate);
             
             const lastMonthStartStr = lastMonth.toISOString().split('T')[0];
             const lastMonthEndStr = lastMonthEnd.toISOString().split('T')[0];
@@ -132,7 +156,7 @@ async function calculateMonthlyCost(costData) {
         const result = {
             totalCost: totalMonthlyCost,
             dailyAverage: dailyAverage,
-            daysInPeriod: currentDay,
+            daysInPeriod: daysToCalculate,
             comparisonWithLastMonth: lastMonthComparison
         };
         
@@ -148,21 +172,61 @@ async function calculateMonthlyCost(costData) {
         const actualServices = Object.keys(costData);
         let total10DayCost = 0;
         
+        console.log('📊 === MONTHLY COST FALLBACK CALCULATION ===');
+        console.log('Services in costData:', actualServices);
+        
         actualServices.forEach(service => {
             const serviceCosts = costData[service] || Array(10).fill(0);
-            total10DayCost += serviceCosts.reduce((sum, cost) => sum + cost, 0);
+            const serviceTotal = serviceCosts.reduce((sum, cost) => sum + cost, 0);
+            console.log(`  - ${service}: $${serviceTotal.toFixed(2)} (10 days)`);
+            console.log(`    Daily breakdown:`, serviceCosts.map(c => `$${c.toFixed(2)}`).join(', '));
+            total10DayCost += serviceTotal;
         });
         
-        const avgDailyCost = total10DayCost / 10;
-        const currentDay = new Date().getDate();
-        const estimatedMonthlyCost = avgDailyCost * currentDay;
+        console.log(`📊 Total cost for last 10 days: $${total10DayCost.toFixed(2)}`);
         
-        console.log(`📊 Fallback estimation: $${estimatedMonthlyCost.toFixed(2)} (${avgDailyCost.toFixed(2)} × ${currentDay} days)`);
+        const avgDailyCost = total10DayCost / 10;
+        console.log(`📊 Average daily cost (10 days): $${avgDailyCost.toFixed(2)}`);
+        
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const daysToCalculate = yesterday.getDate();
+        console.log(`📊 Days to calculate (day 1 to yesterday): ${daysToCalculate} days`);
+        
+        // FIXED: For October 1st (today is Oct 2), use the actual cost from yesterday (index 9)
+        // instead of the 10-day average
+        let monthlyCostSoFar = 0;
+        
+        if (daysToCalculate === 1) {
+            // Special case: Only 1 day to calculate (Oct 1st)
+            // Use the actual cost from yesterday (last position in the array = index 9)
+            actualServices.forEach(service => {
+                const serviceCosts = costData[service] || Array(10).fill(0);
+                const yesterdayCost = serviceCosts[9] || 0; // Index 9 = yesterday
+                monthlyCostSoFar += yesterdayCost;
+                console.log(`  - ${service} cost on Oct 1st: $${yesterdayCost.toFixed(2)}`);
+            });
+            console.log(`📊 ACTUAL COST for October 1st: $${monthlyCostSoFar.toFixed(2)}`);
+        } else {
+            // For multiple days, sum the actual costs from the relevant days
+            for (let dayOffset = 0; dayOffset < daysToCalculate; dayOffset++) {
+                const arrayIndex = 10 - daysToCalculate + dayOffset; // Map to correct array position
+                actualServices.forEach(service => {
+                    const serviceCosts = costData[service] || Array(10).fill(0);
+                    const dayCost = serviceCosts[arrayIndex] || 0;
+                    monthlyCostSoFar += dayCost;
+                });
+            }
+            console.log(`📊 ACTUAL COST for October 1-${daysToCalculate}: $${monthlyCostSoFar.toFixed(2)}`);
+        }
+        
+        console.log(`📊 Monthly cost calculation: $${monthlyCostSoFar.toFixed(2)} (actual from last ${daysToCalculate} day(s))`);
+        console.log('=== END MONTHLY COST FALLBACK CALCULATION ===');
         
         return {
-            totalCost: estimatedMonthlyCost,
-            dailyAverage: avgDailyCost,
-            daysInPeriod: currentDay,
+            totalCost: monthlyCostSoFar,
+            dailyAverage: monthlyCostSoFar / daysToCalculate,
+            daysInPeriod: daysToCalculate,
             comparisonWithLastMonth: 0,
             isEstimated: true
         };
