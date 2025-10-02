@@ -3084,9 +3084,21 @@ function renderConsumptionDetailsPage() {
     const pageData = allConsumptionDetailsData.slice(startIndex, endIndex);
     
     // Array to store daily totals for the current page
-    const dailyTotals = Array(10).fill(0);
+    const pageDailyTotals = Array(10).fill(0);
     
-    // Render the rows
+    // FIXED: Array to store GLOBAL daily totals for ALL users (for the chart)
+    const globalDailyTotals = Array(10).fill(0);
+    
+    // Calculate global totals from ALL users
+    allConsumptionDetailsData.forEach(userData => {
+        userData.dailyConsumption.forEach((consumption, index) => {
+            globalDailyTotals[index] += consumption;
+        });
+    });
+    
+    console.log('📊 FIXED: Global daily totals (all users):', globalDailyTotals);
+    
+    // Render the rows for current page
     pageData.forEach(userData => {
         let rowHtml = `
             <tr>
@@ -3098,7 +3110,7 @@ function renderConsumptionDetailsPage() {
         // Add daily consumption data
         userData.dailyConsumption.forEach((consumption, index) => {
             rowHtml += `<td>${consumption}</td>`;
-            dailyTotals[index] += consumption;
+            pageDailyTotals[index] += consumption;
         });
         
         rowHtml += '</tr>';
@@ -3115,7 +3127,7 @@ function renderConsumptionDetailsPage() {
         `;
         
         for (let i = 0; i < 10; i++) {
-            totalsRowHtml += `<td style="font-weight: bold;">${dailyTotals[i]}</td>`;
+            totalsRowHtml += `<td style="font-weight: bold;">${pageDailyTotals[i]}</td>`;
         }
         
         totalsRowHtml += '</tr>';
@@ -3125,10 +3137,11 @@ function renderConsumptionDetailsPage() {
     // Update pagination info
     updateConsumptionDetailsPaginationInfo();
     
-    // Update the consumption details chart with current page totals
-    updateConsumptionDetailsChart(dailyTotals);
+    // FIXED: Update the consumption details chart with GLOBAL totals (all users, all pages)
+    updateConsumptionDetailsChart(globalDailyTotals);
     
     console.log('📊 Rendered', pageData.length, 'users on consumption details page', consumptionDetailsCurrentPage);
+    console.log('📊 FIXED: Chart updated with global totals instead of page totals');
 }
 
 function updateConsumptionDetailsPaginationInfo() {
