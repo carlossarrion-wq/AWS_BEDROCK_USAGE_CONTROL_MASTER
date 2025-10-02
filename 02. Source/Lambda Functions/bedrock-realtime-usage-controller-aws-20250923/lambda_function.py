@@ -274,7 +274,7 @@ def parse_bedrock_event(event: Dict[str, Any]) -> Dict[str, Any]:
         
         event_name = event.get('eventName', '')
         user_identity = event.get('userIdentity', {})
-        request_parameters = event.get('requestParameters')
+        request_parameters = event.get('requestParameters', {})
         source_ip = event.get('sourceIPAddress', '')
         user_agent = event.get('userAgent', '')
         request_id = event.get('requestID', '')
@@ -294,11 +294,6 @@ def parse_bedrock_event(event: Dict[str, Any]) -> Dict[str, Any]:
             return None
         
         logger.info(f"✅ Extracted user ID: {user_id}")
-        
-        # CORRECCIÓN CRÍTICA: Check if request_parameters is None before accessing it
-        if request_parameters is None:
-            logger.warning(f"❌ request_parameters is None for user {user_id}, event {event_name}")
-            return None
         
         model_id = request_parameters.get('modelId', '')
         if not model_id:
@@ -683,15 +678,15 @@ def execute_user_unblocking(connection, user_id: str) -> bool:
         except Exception as e:
             logger.error(f"❌ Step 3 EXCEPTION: IAM policy modification for unblocking {user_id}: {str(e)}")
         
-        # 4. Send enhanced unblocking email via Lambda service
+        # 4. Send unblocking Gmail
         try:
-            success = send_enhanced_unblocking_email(user_id, 'Automatic unblock', 'system')
+            success = send_unblocking_email_gmail(user_id)
             if success:
-                logger.info(f"✅ Step 4: Sent enhanced unblocking email for {user_id}")
+                logger.info(f"✅ Step 4: Sent unblocking Gmail for {user_id}")
             else:
-                logger.error(f"❌ Step 4 FAILED: Enhanced email sending for unblocking {user_id}")
+                logger.error(f"❌ Step 4 FAILED: Gmail sending for unblocking {user_id}")
         except Exception as e:
-            logger.error(f"❌ Step 4 EXCEPTION: Enhanced email sending for unblocking {user_id}: {str(e)}")
+            logger.error(f"❌ Step 4 EXCEPTION: Gmail sending for unblocking {user_id}: {str(e)}")
         
         logger.info(f"✅ Successfully executed complete unblocking for user {user_id}")
         return True
@@ -1109,18 +1104,17 @@ def manual_block_user(event: Dict[str, Any]) -> Dict[str, Any]:
         user_id = event['user_id']
         reason = event.get('reason', 'Manual admin block')
         performed_by = event.get('performed_by', 'admin')
-        duration = event.get('duration')  # Duration parameter from dashboard
-        expires_at = event.get('expires_at')  # Custom expiration from dashboard (fallback)
+        expires_at = event.get('expires_at')  # Custom expiration from dashboard
         
-        logger.info(f"🚫 Manual blocking user {user_id} by {performed_by}, duration: {duration}, expires_at: {expires_at}")
+        logger.info(f"🚫 Manual blocking user {user_id} by {performed_by}, expires_at: {expires_at}")
         
         connection = get_mysql_connection()
         
         # Get current usage from RDS
         usage_info = get_user_current_usage(connection, user_id)
         
-        # Execute blocking with duration or custom expiration
-        success = execute_admin_blocking(connection, user_id, reason, performed_by, usage_info, duration, expires_at)
+        # Execute blocking with custom or default expiration
+        success = execute_admin_blocking(connection, user_id, reason, performed_by, usage_info, expires_at)
         
         return {
             'statusCode': 200 if success else 500,
@@ -1315,19 +1309,13 @@ def handle_cloudtrail_event(event: Dict[str, Any], context: Any) -> Dict[str, An
             try:
                 logger.info(f"🔍 Processing event {i+1}/{len(events_to_process)}")
                 
-                # CORRECCIÓN CRÍTICA: Extract user_id FIRST before full parsing
-                # This allows us to check blocking status even if request_parameters is None
-                user_identity = detail.get('userIdentity', {})
-                user_arn = user_identity.get('arn', '')
-                user_id = extract_user_from_arn(user_arn)
-                
-                if not user_id:
-                    logger.warning(f"❌ Could not extract user ID from event {i+1}")
+                request_data = parse_bedrock_event(detail)
+                if not request_data:
+                    logger.warning(f"❌ Failed to parse request data for event {i+1}")
                     continue
                 
-                logger.info(f"✅ Extracted user ID: {user_id} for event {i+1}")
+                user_id = request_data['user_id']
                 
-                # Get user metadata
                 team = get_user_team(user_id)
                 person = get_user_person_tag(user_id)
                 
@@ -1340,25 +1328,19 @@ def handle_cloudtrail_event(event: Dict[str, Any], context: Any) -> Dict[str, An
                 ensure_user_exists(connection, user_id, team, person)
                 
                 # 1. ALWAYS check if user is currently blocked and handle automatic unblocking
-                # This must happen BEFORE parsing the full event
+                # This must happen BEFORE checking administrative protection
                 is_blocked, block_reason = check_user_blocking_status(connection, user_id)
                 
-                # CORRECCIÓN: If user was unblocked automatically, increment counters
+                # CORRECCIÓN: If user was unblocked automatically, increment counters and process request
                 if block_reason == 'expired':
                     unblocked_requests += 1
                     logger.info(f"✅ User {user_id} was automatically unblocked due to expiration")
-                    # Continue to parse and process the request since user is now unblocked
+                    # Continue processing the request since user is now unblocked
                 elif is_blocked:
                     logger.warning(f"🚫 User {user_id} is currently blocked: {block_reason}")
                     continue  # Don't process requests from blocked users
                 
-                # 2. NOW parse the full event (after checking blocking status)
-                request_data = parse_bedrock_event(detail)
-                if not request_data:
-                    logger.warning(f"❌ Failed to parse full request data for event {i+1}, but user {user_id} blocking status was checked")
-                    continue
-                
-                # 3. Check if user should be blocked (with administrative protection)
+                # 2. Check if user should be blocked (with administrative protection)
                 should_block, new_block_reason, usage_info = check_user_limits_with_protection(connection, user_id)
                 
                 if should_block:
@@ -1376,7 +1358,7 @@ def handle_cloudtrail_event(event: Dict[str, Any], context: Any) -> Dict[str, An
                     # Don't log the request that triggered the block
                     continue
                 
-                # 4. Log the request normally
+                # 3. Log the request normally
                 log_bedrock_request_cet(connection, request_data, team, person)
                 processed_requests += 1
                 
@@ -1483,71 +1465,32 @@ def get_user_current_usage(connection, user_id: str) -> Dict[str, Any]:
             'administrative_safe': False
         }
 
-def execute_admin_blocking(connection, user_id: str, reason: str, performed_by: str, usage_info: Dict[str, Any], duration: str = None, expires_at: str = None) -> bool:
-    """Execute admin blocking with duration or custom expiration"""
+def execute_admin_blocking(connection, user_id: str, reason: str, performed_by: str, usage_info: Dict[str, Any], expires_at: str = None) -> bool:
+    """Execute admin blocking with custom or default 24-hour expiration"""
     try:
         current_cet_time = get_current_cet_time()
         current_cet_string = get_cet_timestamp_string()
         
-        # Calculate expiration based on duration parameter (preferred) or expires_at (fallback)
-        if duration:
-            logger.info(f"🕐 Processing duration parameter: {duration}")
-            
-            if duration == 'indefinite':
-                blocked_until_string = None
-                logger.info(f"🚫 Admin blocking {user_id} indefinitely")
-            elif duration == 'custom':
-                # For custom duration, use expires_at parameter
-                if expires_at and expires_at != 'Indefinite':
-                    try:
-                        expires_utc = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
-                        blocked_until_cet = expires_utc.astimezone(CET)
-                        blocked_until_string = blocked_until_cet.strftime('%Y-%m-%d %H:%M:%S')
-                        logger.info(f"🚫 Admin blocking {user_id} until custom date {blocked_until_string} CET")
-                    except Exception as e:
-                        logger.error(f"Failed to parse custom expires_at '{expires_at}': {str(e)}, using 1-day default")
-                        blocked_until_cet = current_cet_time + timedelta(days=1)
-                        blocked_until_string = blocked_until_cet.strftime('%Y-%m-%d %H:%M:%S')
-                else:
-                    logger.error(f"Custom duration specified but no expires_at provided, using 1-day default")
-                    blocked_until_cet = current_cet_time + timedelta(days=1)
-                    blocked_until_string = blocked_until_cet.strftime('%Y-%m-%d %H:%M:%S')
-            else:
-                # Parse duration string (e.g., "1day", "30days", "90days")
-                try:
-                    if duration.endswith('day') or duration.endswith('days'):
-                        days_str = duration.replace('days', '').replace('day', '')
-                        days = int(days_str)
-                        blocked_until_cet = current_cet_time + timedelta(days=days)
-                        blocked_until_string = blocked_until_cet.strftime('%Y-%m-%d %H:%M:%S')
-                        logger.info(f"🚫 Admin blocking {user_id} for {days} days until {blocked_until_string} CET")
-                    else:
-                        logger.error(f"Invalid duration format: {duration}, using 1-day default")
-                        blocked_until_cet = current_cet_time + timedelta(days=1)
-                        blocked_until_string = blocked_until_cet.strftime('%Y-%m-%d %H:%M:%S')
-                except Exception as e:
-                    logger.error(f"Failed to parse duration '{duration}': {str(e)}, using 1-day default")
-                    blocked_until_cet = current_cet_time + timedelta(days=1)
-                    blocked_until_string = blocked_until_cet.strftime('%Y-%m-%d %H:%M:%S')
-        elif expires_at and expires_at != 'Indefinite':
-            # Fallback to expires_at if duration not provided
+        # Use custom expiration if provided, otherwise default to 24 hours
+        if expires_at and expires_at != 'Indefinite':
             try:
+                # Parse the expires_at ISO string and convert to CET
                 expires_utc = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
                 blocked_until_cet = expires_utc.astimezone(CET)
                 blocked_until_string = blocked_until_cet.strftime('%Y-%m-%d %H:%M:%S')
                 logger.info(f"🚫 Admin blocking {user_id} until custom date {blocked_until_string} CET")
             except Exception as e:
-                logger.error(f"Failed to parse custom expires_at '{expires_at}': {str(e)}, using 1-day default")
-                blocked_until_cet = current_cet_time + timedelta(days=1)
+                logger.error(f"Failed to parse custom expires_at '{expires_at}': {str(e)}, using 24-hour default")
+                blocked_until_cet = current_cet_time + timedelta(hours=24)
                 blocked_until_string = blocked_until_cet.strftime('%Y-%m-%d %H:%M:%S')
         elif expires_at == 'Indefinite':
             blocked_until_string = None
             logger.info(f"🚫 Admin blocking {user_id} indefinitely")
         else:
-            # Default to 1 day for admin blocks
-            blocked_until_cet = current_cet_time + timedelta(days=1)
+            # Default to 24 hours for admin blocks
+            blocked_until_cet = current_cet_time + timedelta(hours=24)
             blocked_until_string = blocked_until_cet.strftime('%Y-%m-%d %H:%M:%S')
-            logger.info(f"🚫 Admin blocking {user_id} until default 1 day {blocked_until_string} CET")
+            logger.info(f"🚫 Admin blocking {user_id} until default 24h {blocked_until_string} CET")
         
         # Update blocking status with admin info - CORRECCIÓN: Use expected SQL structure
         with connection.cursor() as cursor:
@@ -1567,6 +1510,33 @@ def execute_admin_blocking(connection, user_id: str, reason: str, performed_by: 
             """, [user_id, reason, current_cet_string, blocked_until_string,
                   usage_info['daily_requests_used'], current_cet_string, 
                   current_cet_string, current_cet_string])
+        
+        # CORRECCIÓN CRÍTICA: Set administrative protection for manual blocks
+        try:
+            with connection.cursor() as cursor:
+                # First ensure user exists in user_limits table
+                cursor.execute("SELECT user_id FROM user_limits WHERE user_id = %s", [user_id])
+                if not cursor.fetchone():
+                    # Create user limits entry if it doesn't exist
+                    cursor.execute("""
+                        INSERT INTO user_limits (user_id, team, person, daily_request_limit, monthly_request_limit, administrative_safe, created_at)
+                        VALUES (%s, 'unknown', 'Unknown', 350, 5000, 'Y', %s)
+                    """, [user_id, current_cet_string])
+                    logger.info(f"✅ Created user_limits entry for {user_id} with administrative protection")
+                else:
+                    # Update existing entry
+                    cursor.execute("""
+                        UPDATE user_limits 
+                        SET administrative_safe = 'Y', 
+                            updated_at = %s
+                        WHERE user_id = %s
+                    """, [current_cet_string, user_id])
+                    logger.info(f"✅ Set administrative_safe='Y' for manual blocking of {user_id}")
+                
+                logger.info(f"✅ Administrative protection SET for manual blocking of {user_id}")
+                    
+        except Exception as e:
+            logger.error(f"❌ FAILED to set administrative protection for {user_id}: {str(e)}")
         
         # Log to audit
         with connection.cursor() as cursor:

@@ -669,7 +669,8 @@ async function performDynamicAction() {
     const dynamicBtn = document.getElementById('dynamic-action-btn');
     
     const username = userSelect.value;
-    const duration = blockDuration.value;
+    // CRITICAL FIX: Get duration value even when disabled, or use default
+    const duration = blockDuration.value || '1day';
     const reason = blockReason.value;
     
     // DEBUG: Log the duration values
@@ -744,8 +745,21 @@ async function performDynamicAction() {
                 Payload: JSON.stringify(lambdaPayload)
             }).promise();
             
-            const lambdaResult = JSON.parse(lambdaResponse.Payload);
-            console.log(`🔧 DEBUG performDynamicAction UNBLOCK: Lambda response:`, lambdaResult);
+            // CRITICAL FIX: Better error handling for Lambda response
+            console.log(`🔧 DEBUG performDynamicAction UNBLOCK: Raw Lambda response:`, lambdaResponse);
+            console.log(`🔧 DEBUG performDynamicAction UNBLOCK: Lambda Payload type:`, typeof lambdaResponse.Payload);
+            console.log(`🔧 DEBUG performDynamicAction UNBLOCK: Lambda Payload content:`, lambdaResponse.Payload);
+            
+            let lambdaResult;
+            try {
+                lambdaResult = JSON.parse(lambdaResponse.Payload);
+                console.log(`🔧 DEBUG performDynamicAction UNBLOCK: Parsed Lambda response:`, lambdaResult);
+            } catch (parseError) {
+                console.error(`❌ Failed to parse Lambda response:`, parseError);
+                console.error(`❌ Raw Payload that failed to parse:`, lambdaResponse.Payload);
+                alert(`Error parsing Lambda response: ${parseError.message}\nRaw response: ${lambdaResponse.Payload}`);
+                return;
+            }
             
             if (lambdaResult.statusCode === 200) {
                 alert(`User ${username} has been unblocked successfully via Lambda API`);
@@ -759,7 +773,19 @@ async function performDynamicAction() {
                 // Force complete refresh of blocking data
                 await loadBlockingData();
             } else {
-                const errorMessage = JSON.parse(lambdaResult.body).error || 'Unknown error';
+                // CRITICAL FIX: Better error handling for Lambda error response
+                let errorMessage = 'Unknown error';
+                try {
+                    if (typeof lambdaResult.body === 'string') {
+                        const bodyObj = JSON.parse(lambdaResult.body);
+                        errorMessage = bodyObj.error || 'Unknown error';
+                    } else if (lambdaResult.body && lambdaResult.body.error) {
+                        errorMessage = lambdaResult.body.error;
+                    }
+                } catch (e) {
+                    console.error(`Failed to parse error body:`, e);
+                    errorMessage = lambdaResult.body || 'Unknown error';
+                }
                 alert(`Failed to unblock user: ${errorMessage}`);
                 console.error(`❌ Lambda unblocking failed:`, lambdaResult);
             }
@@ -775,11 +801,15 @@ async function performDynamicAction() {
             return;
         }
         
-        // Calculate expiration date
-        const expiresAt = calculateExpirationDate(duration);
-        console.log(`🔧 DEBUG performDynamicAction BLOCK: calculated expiresAt="${expiresAt}" for duration="${duration}"`);
+        // CRITICAL FIX: Ensure duration has a valid value before calculating expiration
+        const validDuration = duration || '1day';
+        console.log(`🔧 DEBUG performDynamicAction BLOCK: using duration="${validDuration}" (original was "${duration}")`);
         
-        if (duration === 'custom' && !expiresAt) {
+        // Calculate expiration date
+        const expiresAt = calculateExpirationDate(validDuration);
+        console.log(`🔧 DEBUG performDynamicAction BLOCK: calculated expiresAt="${expiresAt}" for duration="${validDuration}"`);
+        
+        if (validDuration === 'custom' && !expiresAt) {
             alert('Please select a custom date and time');
             return;
         }
@@ -821,13 +851,14 @@ async function performDynamicAction() {
             }
             
             // Prepare Lambda payload for manual blocking
+            // CRITICAL FIX: Ensure all values are properly defined before creating payload
             const lambdaPayload = {
                 action: 'block',
                 user_id: username,
                 reason: reason,
                 performed_by: 'dashboard_admin',
-                duration: duration,
-                expires_at: expiresAt,
+                duration: validDuration,
+                expires_at: expiresAt || 'Indefinite',
                 usage_record: {
                     request_count: dailyUsage,
                     daily_limit: dailyLimit,
@@ -848,8 +879,21 @@ async function performDynamicAction() {
                 Payload: JSON.stringify(lambdaPayload)
             }).promise();
             
-            const lambdaResult = JSON.parse(lambdaResponse.Payload);
-            console.log(`🔧 DEBUG performDynamicAction BLOCK: Lambda response:`, lambdaResult);
+            // CRITICAL FIX: Better error handling for Lambda response
+            console.log(`🔧 DEBUG performDynamicAction BLOCK: Raw Lambda response:`, lambdaResponse);
+            console.log(`🔧 DEBUG performDynamicAction BLOCK: Lambda Payload type:`, typeof lambdaResponse.Payload);
+            console.log(`🔧 DEBUG performDynamicAction BLOCK: Lambda Payload content:`, lambdaResponse.Payload);
+            
+            let lambdaResult;
+            try {
+                lambdaResult = JSON.parse(lambdaResponse.Payload);
+                console.log(`🔧 DEBUG performDynamicAction BLOCK: Parsed Lambda response:`, lambdaResult);
+            } catch (parseError) {
+                console.error(`❌ Failed to parse Lambda response:`, parseError);
+                console.error(`❌ Raw Payload that failed to parse:`, lambdaResponse.Payload);
+                alert(`Error parsing Lambda response: ${parseError.message}\nRaw response: ${lambdaResponse.Payload}`);
+                return;
+            }
             
             if (lambdaResult.statusCode === 200) {
                 alert(`User ${username} has been blocked successfully via Lambda API`);
@@ -870,7 +914,19 @@ async function performDynamicAction() {
                 // Force complete refresh of blocking data
                 await loadBlockingData();
             } else {
-                const errorMessage = JSON.parse(lambdaResult.body).error || 'Unknown error';
+                // CRITICAL FIX: Better error handling for Lambda error response
+                let errorMessage = 'Unknown error';
+                try {
+                    if (typeof lambdaResult.body === 'string') {
+                        const bodyObj = JSON.parse(lambdaResult.body);
+                        errorMessage = bodyObj.error || 'Unknown error';
+                    } else if (lambdaResult.body && lambdaResult.body.error) {
+                        errorMessage = lambdaResult.body.error;
+                    }
+                } catch (e) {
+                    console.error(`Failed to parse error body:`, e);
+                    errorMessage = lambdaResult.body || 'Unknown error';
+                }
                 alert(`Failed to block user: ${errorMessage}`);
                 console.error(`❌ Lambda blocking failed:`, lambdaResult);
             }
