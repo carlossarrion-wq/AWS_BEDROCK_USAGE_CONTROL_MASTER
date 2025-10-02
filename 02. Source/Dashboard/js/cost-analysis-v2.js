@@ -280,6 +280,8 @@ async function loadCostAnalysisData() {
         // Always try to fetch real AWS cost data first
         let costData;
         let useRealData = false;
+        let users = { allUsers: [], usersByTeam: {}, userTags: {} };
+        let userMetrics = {};
         
         try {
             console.log('🔍 Checking AWS connection status...');
@@ -323,23 +325,52 @@ async function loadCostAnalysisData() {
                 </div>
             `;
             
-            // Fall back to estimated data based on request patterns
-            const [users, userMetrics] = await Promise.all([
-                window.mysqlDataService.getUsers(),
-                window.mysqlDataService.getUserMetricsForCostAnalysis()
-            ]);
-            
-            costData = generateCostEstimatesFromRequests(users, userMetrics);
-            useRealData = false;
+            // Try to fall back to estimated data based on request patterns
+            try {
+                console.log('🔄 Fetching fresh users data from MySQL...');
+                [users, userMetrics] = await Promise.all([
+                    window.mysqlDataService.getUsers(),
+                    window.mysqlDataService.getUserMetricsForCostAnalysis()
+                ]);
+                
+                costData = generateCostEstimatesFromRequests(users, userMetrics);
+                useRealData = false;
+            } catch (mysqlError) {
+                console.error('❌ Error fetching users data from MySQL:', mysqlError);
+                console.log('⚠️ Using empty cost data as final fallback...');
+                
+                // Final fallback: Use empty cost data structure
+                costData = {
+                    'Amazon Bedrock': Array(10).fill(0),
+                    'Claude 3.7 Sonnet': Array(10).fill(0),
+                    'Claude Sonnet 4': Array(10).fill(0),
+                    'Claude Sonnet 4.5': Array(10).fill(0)
+                };
+                
+                document.getElementById('cost-alerts-container').innerHTML = `
+                    <div class="alert critical">
+                        <strong>❌ Error:</strong> Unable to load cost data from AWS or MySQL.
+                        <br><br><strong>Details:</strong>
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                            <li>AWS Error: ${awsError.message}</li>
+                            <li>MySQL Error: ${mysqlError.message}</li>
+                        </ul>
+                        <br><strong>Displaying empty charts. Please check your connection and try refreshing.</strong>
+                    </div>
+                `;
+            }
         }
         
         console.log(`📊 Loading Cost Analysis widgets with ${useRealData ? 'REAL AWS' : 'ESTIMATED'} data...`);
         
         // Get users and user metrics for request data correlation (Cost Analysis specific)
-        const [users, userMetrics] = await Promise.all([
-            window.mysqlDataService.getUsers(),
-            window.mysqlDataService.getUserMetricsForCostAnalysis()
-        ]);
+        // Only fetch if not already fetched in the fallback
+        if (users.allUsers.length === 0) {
+            [users, userMetrics] = await Promise.all([
+                window.mysqlDataService.getUsers(),
+                window.mysqlDataService.getUserMetricsForCostAnalysis()
+            ]);
+        }
         
         // Load cost analysis sections
         await loadCostAnalysisTable(costData);
