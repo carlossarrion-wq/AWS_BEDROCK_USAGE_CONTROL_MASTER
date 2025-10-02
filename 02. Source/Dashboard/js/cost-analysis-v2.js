@@ -440,15 +440,18 @@ function generateCostEstimatesFromRequests(users, userMetrics) {
     const dailyRequestTotals = Array(10).fill(0);
     
     users.allUsers.forEach(username => {
-        const dailyData = userMetrics[username]?.daily || Array(10).fill(0);
+        const dailyData = userMetrics[username]?.daily || Array(11).fill(0);
         
-        // Sum up requests for each day (using same indexing as other components)
+        // FIXED: Use the SAME indexing logic as Cost vs Requests table
+        // Map display positions 0-9 to MySQL indices 1-10 (day-9 through today)
         for (let i = 0; i < 10; i++) {
-            dailyRequestTotals[i] += dailyData[i] || 0;
+            const dataIndex = i + 1; // Map display position 0-9 to MySQL indices 1-10
+            dailyRequestTotals[i] += dailyData[dataIndex] || 0;
         }
     });
     
-    console.log('📊 Daily request totals from DynamoDB:', dailyRequestTotals);
+    console.log('📊 Daily request totals from MySQL:', dailyRequestTotals);
+    console.log('📊 Total requests across all days:', dailyRequestTotals.reduce((sum, val) => sum + val, 0));
     
     // Distribute requests across services and calculate costs
     services.forEach((service, serviceIndex) => {
@@ -464,6 +467,16 @@ function generateCostEstimatesFromRequests(users, userMetrics) {
     });
     
     console.log('💰 Generated cost estimates:', costData);
+    
+    // Calculate and log total costs for verification
+    let totalCostAcrossAllServices = 0;
+    services.forEach(service => {
+        const serviceTotal = costData[service].reduce((sum, cost) => sum + cost, 0);
+        totalCostAcrossAllServices += serviceTotal;
+        console.log(`  - ${service}: $${serviceTotal.toFixed(2)} total`);
+    });
+    console.log(`💰 TOTAL ESTIMATED COST (all services, 10 days): $${totalCostAcrossAllServices.toFixed(2)}`);
+    
     return costData;
 }
 
@@ -639,21 +652,15 @@ async function loadCostVsRequestsTable(costData, users, userMetrics) {
         // Store cost per request data for the chart (in chronological order)
         window.costPerRequestTableData[9-i] = costPerRequest;
         
-        // Calculate efficiency rating
+        // Calculate efficiency rating with updated thresholds
         let efficiencyRating = 'N/A';
         let efficiencyClass = '';
         if (requests > 0) {
-            if (costPerRequest < 0.001) {
+            if (costPerRequest < 0.08) {
                 efficiencyRating = 'Excellent';
                 efficiencyClass = 'success';
-            } else if (costPerRequest < 0.002) {
-                efficiencyRating = 'Very Good';
-                efficiencyClass = 'info';
-            } else if (costPerRequest < 0.005) {
-                efficiencyRating = 'Good';
-                efficiencyClass = '';
-            } else if (costPerRequest < 0.01) {
-                efficiencyRating = 'Fair';
+            } else if (costPerRequest <= 0.12) {
+                efficiencyRating = 'Normal';
                 efficiencyClass = 'warning';
             } else {
                 efficiencyRating = 'Poor';
@@ -661,29 +668,28 @@ async function loadCostVsRequestsTable(costData, users, userMetrics) {
             }
         }
         
-        // Calculate trends
+        // Calculate trends - Show actual percentage for all cases
         let costTrend = '-';
         let requestTrend = '-';
-        if (i > 0) {
-            const prevCost = dailyCosts[i - 1];
-            const prevRequests = dailyRequests[i - 1];
+        
+        // Current day is at index (9-i), previous day is at index (9-i-1)
+        const currentDayIndex = 9 - i;
+        const previousDayIndex = currentDayIndex - 1;
+        
+        if (previousDayIndex >= 0) {
+            const prevCost = dailyCosts[previousDayIndex];
+            const prevRequests = dailyRequests[previousDayIndex];
             
+            // Calculate cost trend - show percentage if previous day had cost
             if (prevCost > 0) {
                 const costChange = ((cost - prevCost) / prevCost) * 100;
-                if (Math.abs(costChange) > 5) {
-                    costTrend = costChange > 0 ? `+${costChange.toFixed(1)}%` : `${costChange.toFixed(1)}%`;
-                } else {
-                    costTrend = '~';
-                }
+                costTrend = costChange > 0 ? `+${costChange.toFixed(1)}%` : `${costChange.toFixed(1)}%`;
             }
             
+            // Calculate request trend - show percentage if previous day had requests
             if (prevRequests > 0) {
                 const requestChange = ((requests - prevRequests) / prevRequests) * 100;
-                if (Math.abs(requestChange) > 5) {
-                    requestTrend = requestChange > 0 ? `+${requestChange.toFixed(1)}%` : `${requestChange.toFixed(1)}%`;
-                } else {
-                    requestTrend = '~';
-                }
+                requestTrend = requestChange > 0 ? `+${requestChange.toFixed(1)}%` : `${requestChange.toFixed(1)}%`;
             }
         }
         
@@ -760,26 +766,18 @@ async function loadCostVsRequestsTable(costData, users, userMetrics) {
         overallRequestTrend = requestChange > 0 ? `+${requestChange.toFixed(1)}%` : `${requestChange.toFixed(1)}%`;
     }
     
-    // Calculate overall efficiency rating
+    // Calculate overall efficiency rating with updated thresholds
     let overallEfficiencyRating = 'N/A';
     let overallEfficiencyClass = '';
     let overallEfficiencyIcon = '⚪';
     
     if (totalRequests > 0) {
-        if (avgCostPerRequest < 0.001) {
+        if (avgCostPerRequest < 0.08) {
             overallEfficiencyRating = 'Excellent';
             overallEfficiencyClass = 'success';
             overallEfficiencyIcon = '🟢';
-        } else if (avgCostPerRequest < 0.002) {
-            overallEfficiencyRating = 'Very Good';
-            overallEfficiencyClass = 'info';
-            overallEfficiencyIcon = '�';
-        } else if (avgCostPerRequest < 0.005) {
-            overallEfficiencyRating = 'Good';
-            overallEfficiencyClass = '';
-            overallEfficiencyIcon = '⚪';
-        } else if (avgCostPerRequest < 0.01) {
-            overallEfficiencyRating = 'Fair';
+        } else if (avgCostPerRequest <= 0.12) {
+            overallEfficiencyRating = 'Normal';
             overallEfficiencyClass = 'warning';
             overallEfficiencyIcon = '🟡';
         } else {
@@ -1036,6 +1034,14 @@ async function loadCostAnalysisCharts(costData) {
                 dailyTotals[i] += serviceCosts[i] || 0;
             }
         });
+        
+        console.log('📊 === DAILY COST TREND CHART DATA ===');
+        console.log('Daily totals being passed to chart:', dailyTotals);
+        console.log('Total cost across all days:', dailyTotals.reduce((sum, val) => sum + val, 0));
+        for (let i = 0; i < 10; i++) {
+            console.log(`  Day ${i}: $${dailyTotals[i].toFixed(2)}`);
+        }
+        console.log('=== END DAILY COST TREND CHART DATA ===');
         
         // Update cost trend chart
         updateCostTrendChart(dailyTotals);
