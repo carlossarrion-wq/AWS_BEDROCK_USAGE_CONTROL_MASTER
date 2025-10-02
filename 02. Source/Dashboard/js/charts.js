@@ -714,6 +714,8 @@ async function updateCostTrendChart(dailyTotals) {
         return;
     }
     
+    console.log('📊 updateCostTrendChart called with dailyTotals:', dailyTotals);
+    
     // Create labels for the last 10 days
     const dateLabels = [];
     // FIXED: Use CET timezone for date synchronization
@@ -721,16 +723,19 @@ async function updateCostTrendChart(dailyTotals) {
     const cetTodayStr = cetToday.toLocaleDateString('en-CA'); // YYYY-MM-DD format in CET
     console.log('🕐 Charts.js using CET date:', cetTodayStr);
     
-    for (let i = 9; i >= 0; i--) {
+    // FIXED: Generate labels in chronological order to match dailyTotals array
+    // dailyTotals[0] = 10 days ago, dailyTotals[9] = yesterday
+    for (let i = 0; i < 10; i++) {
         const date = new Date(cetToday);
-        date.setDate(date.getDate() - i);
+        const daysBack = 10 - i; // Start from 10 days ago, end at 1 day ago (yesterday)
+        date.setDate(date.getDate() - daysBack);
         
-        if (i === 0) {
-            dateLabels.push('Today');
-        } else {
-            dateLabels.push(moment(date).format('D MMM'));
-        }
+        // Always show the actual date, no "Today" since we exclude today
+        dateLabels.push(moment(date).format('D MMM'));
     }
+    
+    console.log('📊 Cost Trend Chart labels:', dateLabels);
+    console.log('📊 Cost Trend Chart data:', dailyTotals);
     
     const chartData = {
         labels: dateLabels,
