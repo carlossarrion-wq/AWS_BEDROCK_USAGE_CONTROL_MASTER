@@ -706,95 +706,116 @@ function updateUserDistributionHistogram(userData) {
     }
 }
 
-async function updateCostTrendChart(dailyTotals) {
-    // Check if canvas element exists before proceeding
+function updateCostTrendChart(dailyTotals) {
+    console.log('🆕 NEW updateCostTrendChart - Starting fresh implementation');
+    console.log('📊 Received dailyTotals:', dailyTotals);
+    
+    // Get canvas element
     const canvas = document.getElementById('cost-trend-chart');
     if (!canvas) {
-        console.warn('⚠️ Canvas element cost-trend-chart not found, skipping chart update');
+        console.error('❌ Canvas element "cost-trend-chart" not found in DOM');
         return;
     }
+    console.log('✅ Canvas element found:', canvas);
     
-    console.log('📊 updateCostTrendChart called with dailyTotals:', dailyTotals);
-    
-    // Create labels for the last 10 days
-    const dateLabels = [];
-    // FIXED: Use CET timezone for date synchronization
-    const cetToday = new Date();
-    const cetTodayStr = cetToday.toLocaleDateString('en-CA'); // YYYY-MM-DD format in CET
-    console.log('🕐 Charts.js using CET date:', cetTodayStr);
-    
-    // FIXED: Generate labels in chronological order to match dailyTotals array
-    // dailyTotals[0] = 10 days ago, dailyTotals[9] = yesterday
-    for (let i = 0; i < 10; i++) {
-        const date = new Date(cetToday);
-        const daysBack = 10 - i; // Start from 10 days ago, end at 1 day ago (yesterday)
-        date.setDate(date.getDate() - daysBack);
-        
-        // Always show the actual date, no "Today" since we exclude today
-        dateLabels.push(moment(date).format('D MMM'));
+    // Destroy any existing chart instance
+    if (window.costTrendChart) {
+        console.log('🗑️ Destroying existing chart instance');
+        window.costTrendChart.destroy();
+        window.costTrendChart = null;
     }
     
-    console.log('📊 Cost Trend Chart labels:', dateLabels);
-    console.log('📊 Cost Trend Chart data:', dailyTotals);
+    // Generate date labels for last 10 days
+    const labels = [];
+    const today = new Date();
+    for (let i = 9; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        labels.push(moment(date).format('D MMM'));
+    }
+    console.log('📅 Generated labels:', labels);
     
+    // Prepare chart data
     const chartData = {
-        labels: dateLabels,
+        labels: labels,
         datasets: [{
-            label: 'Total Daily Cost',
+            label: 'Daily Cost (USD)',
             data: dailyTotals,
-            backgroundColor: '#27ae60',
             borderColor: '#27ae60',
-            borderWidth: 2,
-            fill: false,
-            tension: 0.4
+            backgroundColor: 'rgba(39, 174, 96, 0.1)',
+            borderWidth: 3,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            pointBackgroundColor: '#27ae60',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 2,
+            tension: 0.3,
+            fill: true
         }]
     };
     
-    if (costTrendChart) {
-        costTrendChart.data = chartData;
-        costTrendChart.update();
-    } else {
-        try {
-            costTrendChart = new Chart(canvas, {
-                type: 'line',
-                data: chartData,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        title: {
-                            display: true,
-                            text: 'Daily Cost Trend - Last 10 Days'
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Cost (USD)'
-                            },
-                            ticks: {
-                                callback: function(value) {
-                                    return '$' + value.toFixed(2);
-                                }
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Date'
-                            }
+    // Chart configuration
+    const config = {
+        type: 'line',
+        data: chartData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        label: function(context) {
+                            return 'Cost: $' + context.parsed.y.toFixed(2);
                         }
                     }
                 }
-            });
-        } catch (error) {
-            console.error('❌ Error creating cost trend chart:', error);
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Cost (USD)',
+                        font: {
+                            size: 14,
+                            weight: 'bold'
+                        }
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toFixed(2);
+                        }
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date',
+                        font: {
+                            size: 14,
+                            weight: 'bold'
+                        }
+                    }
+                }
+            }
         }
+    };
+    
+    // Create new chart
+    try {
+        console.log('🎨 Creating new Chart.js instance...');
+        window.costTrendChart = new Chart(canvas, config);
+        console.log('✅ Chart created successfully!');
+        console.log('📊 Chart object:', window.costTrendChart);
+    } catch (error) {
+        console.error('❌ Error creating chart:', error);
+        console.error('Stack trace:', error.stack);
     }
 }
 

@@ -922,8 +922,8 @@ function initializeAWSCostCharts() {
 function updateAWSCostCharts() {
     console.log('📈 Updating AWS cost charts...');
     
-    // Update cost trend chart
-    updateCostTrendChart();
+    // Update AWS cost trend chart
+    updateAWSCostTrendChart();
     
     // Update service distribution chart
     updateServiceDistributionChart();
@@ -935,8 +935,8 @@ function updateAWSCostCharts() {
     updateCategoryCostChart();
 }
 
-// Update cost trend chart
-function updateCostTrendChart() {
+// Update AWS cost trend chart (renamed to avoid conflict with Cost Analysis chart)
+function updateAWSCostTrendChart() {
     const chart = awsCostCharts['aws-cost-trend-chart'];
     if (!chart) return;
     
