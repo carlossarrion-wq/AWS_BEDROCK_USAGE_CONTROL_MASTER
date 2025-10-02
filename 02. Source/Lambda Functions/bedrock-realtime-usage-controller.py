@@ -1511,6 +1511,33 @@ def execute_admin_blocking(connection, user_id: str, reason: str, performed_by: 
                   usage_info['daily_requests_used'], current_cet_string, 
                   current_cet_string, current_cet_string])
         
+        # CORRECCIÓN CRÍTICA: Set administrative protection for manual blocks
+        try:
+            with connection.cursor() as cursor:
+                # First ensure user exists in user_limits table
+                cursor.execute("SELECT user_id FROM user_limits WHERE user_id = %s", [user_id])
+                if not cursor.fetchone():
+                    # Create user limits entry if it doesn't exist
+                    cursor.execute("""
+                        INSERT INTO user_limits (user_id, team, person, daily_request_limit, monthly_request_limit, administrative_safe, created_at)
+                        VALUES (%s, 'unknown', 'Unknown', 350, 5000, 'Y', %s)
+                    """, [user_id, current_cet_string])
+                    logger.info(f"✅ Created user_limits entry for {user_id} with administrative protection")
+                else:
+                    # Update existing entry
+                    cursor.execute("""
+                        UPDATE user_limits 
+                        SET administrative_safe = 'Y', 
+                            updated_at = %s
+                        WHERE user_id = %s
+                    """, [current_cet_string, user_id])
+                    logger.info(f"✅ Set administrative_safe='Y' for manual blocking of {user_id}")
+                
+                logger.info(f"✅ Administrative protection SET for manual blocking of {user_id}")
+                    
+        except Exception as e:
+            logger.error(f"❌ FAILED to set administrative protection for {user_id}: {str(e)}")
+        
         # Log to audit
         with connection.cursor() as cursor:
             cursor.execute("""
