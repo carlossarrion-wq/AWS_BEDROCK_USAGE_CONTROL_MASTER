@@ -884,15 +884,48 @@ async function updateUserConsumptionMetrics() {
         document.getElementById('user-avg-requests').textContent = avgRequestsPerUser;
         document.getElementById('user-avg-cost').textContent = `$${avgCostPerUser.toFixed(2)}`;
         
-        // Update change indicators (simplified - showing positive trends)
+        // Calculate top 5 users by request count
+        const usersWithRequests = [];
+        allUsers.forEach(username => {
+            const dailyData = userMetrics[username]?.daily || Array(11).fill(0);
+            const todayRequests = dailyData[10] || 0; // Index 10 is today
+            
+            if (todayRequests > 0) {
+                usersWithRequests.push({
+                    username,
+                    requests: todayRequests
+                });
+            }
+        });
+        
+        // Sort by requests (highest to lowest) and take top 5
+        usersWithRequests.sort((a, b) => b.requests - a.requests);
+        const top5Users = usersWithRequests.slice(0, 5);
+        
+        // Calculate average and total for top 5 users
+        let top5TotalRequests = 0;
+        let top5AvgRequests = 0;
+        
+        if (top5Users.length > 0) {
+            top5Users.forEach(user => {
+                top5TotalRequests += user.requests;
+            });
+            top5AvgRequests = Math.round(top5TotalRequests / top5Users.length);
+        }
+        
+        console.log('📊 Top 5 users by request count:', top5Users);
+        console.log('📊 Top 5 users - Total requests:', top5TotalRequests);
+        console.log('📊 Top 5 users - Average requests:', top5AvgRequests);
+        
+        // Update change indicators with top 5 users statistics
         const requestsChangeElement = document.getElementById('user-requests-change');
         const usersChangeElement = document.getElementById('user-users-change');
         const peakChangeElement = document.getElementById('user-peak-change');
         const avgChangeElement = document.getElementById('user-avg-change');
         
         if (requestsChangeElement) {
-            requestsChangeElement.innerHTML = `<span>↗</span> +${Math.round(totalRequestsToday * 0.15)} vs yesterday`;
-            requestsChangeElement.className = 'metric-change positive';
+            requestsChangeElement.innerHTML = `<span>🏆</span> Top 5 users: ${top5TotalRequests.toLocaleString()} total requests`;
+            requestsChangeElement.className = 'metric-change';
         }
         
         if (usersChangeElement) {
@@ -906,7 +939,7 @@ async function updateUserConsumptionMetrics() {
         }
         
         if (avgChangeElement) {
-            avgChangeElement.innerHTML = `<span>📊</span> ${avgRequestsPerUser > 10 ? 'High' : 'Normal'} activity`;
+            avgChangeElement.innerHTML = `<span>📊</span> Top 5 users avg: ${top5AvgRequests.toLocaleString()} requests`;
             avgChangeElement.className = 'metric-change';
         }
         
@@ -1377,8 +1410,7 @@ function loadTeamUsageDetails() {
                 <td>${dailyTotal}</td>
                 <td>${window.createPercentageIndicator(dailyPercentage)} (of ${estimatedDailyLimit})</td>
                 <td>${adjustedMonthlyTotal}</td>
-                <td>${monthlyLimit}</td>
-                <td>${window.createPercentageIndicator(adjustedMonthlyPercentage)}</td>
+                <td>${window.createPercentageIndicator(adjustedMonthlyPercentage)} (of ${monthlyLimit})</td>
             </tr>
         `;
     });
