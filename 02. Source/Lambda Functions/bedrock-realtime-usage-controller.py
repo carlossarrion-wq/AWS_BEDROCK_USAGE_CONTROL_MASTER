@@ -568,15 +568,15 @@ def execute_user_blocking(connection, user_id: str, block_reason: str, usage_inf
             logger.error(f"❌ Step 3 EXCEPTION: IAM policy creation for {user_id}: {str(e)}")
             iam_success = False
         
-        # 4. Send Gmail notification
+        # 4. Send enhanced email notification via Lambda service
         try:
-            email_success = send_blocking_email_gmail(user_id, block_reason, usage_info, blocked_until_cet)
+            email_success = send_enhanced_blocking_email(user_id, block_reason, usage_info, 'system')
             if email_success:
-                logger.info(f"✅ Step 4: Sent blocking Gmail for {user_id}")
+                logger.info(f"✅ Step 4: Sent blocking email via Lambda service for {user_id}")
             else:
-                logger.error(f"❌ Step 4 FAILED: Gmail sending for {user_id}")
+                logger.error(f"❌ Step 4 FAILED: Email sending for {user_id}")
         except Exception as e:
-            logger.error(f"❌ Step 4 EXCEPTION: Gmail sending for {user_id}: {str(e)}")
+            logger.error(f"❌ Step 4 EXCEPTION: Email sending for {user_id}: {str(e)}")
             email_success = False
         
         # 2. Log to BLOCKING_AUDIT_LOG (moved after other operations to record actual results)
@@ -678,15 +678,15 @@ def execute_user_unblocking(connection, user_id: str) -> bool:
         except Exception as e:
             logger.error(f"❌ Step 3 EXCEPTION: IAM policy modification for unblocking {user_id}: {str(e)}")
         
-        # 4. Send unblocking Gmail
+        # 4. Send enhanced unblocking email via Lambda service
         try:
-            success = send_unblocking_email_gmail(user_id)
+            success = send_enhanced_unblocking_email(user_id, 'Automatic unblock', 'system')
             if success:
-                logger.info(f"✅ Step 4: Sent unblocking Gmail for {user_id}")
+                logger.info(f"✅ Step 4: Sent unblocking email via Lambda service for {user_id}")
             else:
-                logger.error(f"❌ Step 4 FAILED: Gmail sending for unblocking {user_id}")
+                logger.error(f"❌ Step 4 FAILED: Email sending for unblocking {user_id}")
         except Exception as e:
-            logger.error(f"❌ Step 4 EXCEPTION: Gmail sending for unblocking {user_id}: {str(e)}")
+            logger.error(f"❌ Step 4 EXCEPTION: Email sending for unblocking {user_id}: {str(e)}")
         
         logger.info(f"✅ Successfully executed complete unblocking for user {user_id}")
         return True
@@ -1672,6 +1672,24 @@ def execute_admin_unblocking(connection, user_id: str, reason: str, performed_by
 def send_enhanced_blocking_email(user_id: str, reason: str, usage_info: Dict[str, Any], performed_by: str) -> bool:
     """Send enhanced blocking email via separate Lambda service"""
     try:
+        # Get team information if not already in usage_info
+        team = usage_info.get('team')
+        if not team:
+            team = get_user_team(user_id)
+        
+        # Calculate blocked_until time (tomorrow at 00:00 CET)
+        current_cet_time = get_current_cet_time()
+        blocked_until_cet = (current_cet_time + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        blocked_until_iso = blocked_until_cet.isoformat()
+        
+        # Transform usage_info to match email service expected format
+        usage_record_for_email = {
+            'request_count': usage_info.get('daily_requests_used', 0),
+            'daily_limit': usage_info.get('daily_limit', 0),
+            'team': team,
+            'expires_at': blocked_until_iso
+        }
+        
         if performed_by != 'system':
             # Admin blocking email
             email_payload = {
@@ -1679,31 +1697,38 @@ def send_enhanced_blocking_email(user_id: str, reason: str, usage_info: Dict[str
                 'user_id': user_id,
                 'performed_by': performed_by,
                 'reason': reason,
-                'usage_record': usage_info
+                'usage_record': usage_record_for_email
             }
         else:
             # Automatic blocking email
             email_payload = {
                 'action': 'send_blocking_email',
                 'user_id': user_id,
-                'usage_record': usage_info,
+                'usage_record': usage_record_for_email,
                 'reason': reason
             }
         
         if EMAIL_NOTIFICATIONS_ENABLED:
+            logger.info(f"📧 Invoking email service Lambda: {EMAIL_SERVICE_LAMBDA_NAME} with payload: {json.dumps(email_payload)}")
+            
             response = lambda_client.invoke(
                 FunctionName=EMAIL_SERVICE_LAMBDA_NAME,
                 InvocationType='RequestResponse',
                 Payload=json.dumps(email_payload)
             )
             
+            logger.info(f"📬 Lambda invocation response status: {response.get('StatusCode')}")
+            
             response_payload = json.loads(response['Payload'].read())
+            logger.info(f"📬 Lambda response payload: {json.dumps(response_payload)}")
+            
             success = response_payload.get('statusCode') == 200
             
             if success:
                 logger.info(f"✅ Enhanced email sent for blocking {user_id}")
             else:
-                logger.warning(f"⚠️ Enhanced email failed for {user_id}, falling back to Gmail")
+                error_msg = response_payload.get('body', 'Unknown error')
+                logger.warning(f"⚠️ Enhanced email failed for {user_id}: {error_msg}, falling back to Gmail")
                 # Fallback to existing Gmail functionality
                 return send_blocking_email_gmail(user_id, reason, usage_info, 
                                                get_current_cet_time() + timedelta(hours=24))
@@ -1714,7 +1739,8 @@ def send_enhanced_blocking_email(user_id: str, reason: str, usage_info: Dict[str
             return True
         
     except Exception as e:
-        logger.error(f"Enhanced email service failed, falling back to Gmail: {str(e)}")
+        logger.error(f"❌ Enhanced email service exception for {user_id}: {str(e)}", exc_info=True)
+        logger.error(f"Exception type: {type(e).__name__}")
         # Fallback to existing Gmail functionality
         return send_blocking_email_gmail(user_id, reason, usage_info, 
                                        get_current_cet_time() + timedelta(hours=24))
