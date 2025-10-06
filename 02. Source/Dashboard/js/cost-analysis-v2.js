@@ -521,7 +521,17 @@ async function loadCostAnalysisTable(costData) {
         let serviceTotal = 0;
         for (let i = 0; i < 10; i++) {
             const cost = serviceCosts[i] || 0;
-            rowHtml += `<td>$${cost.toFixed(2)}</td>`;
+            
+            // Calculate which date this column represents to check if it's a weekend
+            const date = new Date();
+            const daysBack = 10 - i;
+            date.setDate(date.getDate() - daysBack);
+            const dayOfWeek = date.getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            
+            // Apply weekend styling to data cells
+            const weekendStyle = isWeekend ? ' style="background-color: #ffebee;"' : '';
+            rowHtml += `<td${weekendStyle}>$${cost.toFixed(2)}</td>`;
             
             // Add to daily totals and service total
             dailyTotals[i] += cost;
@@ -543,7 +553,16 @@ async function loadCostAnalysisTable(costData) {
         
         let grandTotal = 0;
         for (let i = 0; i < 10; i++) {
-            totalsRowHtml += `<td style="font-weight: bold;">$${dailyTotals[i].toFixed(2)}</td>`;
+            // Calculate which date this column represents to check if it's a weekend
+            const date = new Date();
+            const daysBack = 10 - i;
+            date.setDate(date.getDate() - daysBack);
+            const dayOfWeek = date.getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            
+            // Apply weekend styling to totals row cells
+            const weekendStyle = isWeekend ? ' background-color: #ffebee;' : '';
+            totalsRowHtml += `<td style="font-weight: bold;${weekendStyle}">$${dailyTotals[i].toFixed(2)}</td>`;
             grandTotal += dailyTotals[i];
         }
         
@@ -698,6 +717,9 @@ async function loadCostVsRequestsTable(costData, users, userMetrics) {
         const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
         const weekendClass = isWeekend ? 'weekend' : '';
         
+        // Apply soft red background to weekend rows
+        const weekendRowStyle = isWeekend ? ' style="background-color: #ffebee;"' : '';
+        
         // Style trends with colors
         const costTrendStyle = costTrend.startsWith('+') ? 'color: #e74c3c;' : 
                              costTrend.startsWith('-') ? 'color: #27ae60;' : '';
@@ -724,7 +746,7 @@ async function loadCostVsRequestsTable(costData, users, userMetrics) {
         }
         
         tableBody.innerHTML += `
-            <tr class="${weekendClass}">
+            <tr class="${weekendClass}"${weekendRowStyle}>
                 <td><strong>${dateStr}</strong></td>
                 <td>$${cost.toFixed(2)}</td>
                 <td>${requests.toLocaleString()}</td>
@@ -916,7 +938,16 @@ async function loadCostAttributionTable(costData, users, userMetrics) {
             
             console.log(`  - Final team day cost: $${teamDayCost.toFixed(2)}`);
             
-            rowHtml += `<td>$${teamDayCost.toFixed(2)}</td>`;
+            // Calculate which date this column represents to check if it's a weekend
+            const date = new Date();
+            const daysBack = 10 - i;
+            date.setDate(date.getDate() - daysBack);
+            const dayOfWeek = date.getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            
+            // Apply weekend styling to data cells
+            const weekendStyle = isWeekend ? ' style="background-color: #ffebee;"' : '';
+            rowHtml += `<td${weekendStyle}>$${teamDayCost.toFixed(2)}</td>`;
             teamTotalCost += teamDayCost;
         }
         
@@ -942,7 +973,17 @@ async function loadCostAttributionTable(costData, users, userMetrics) {
     let grandTotal = 0;
     for (let i = 0; i < 10; i++) {
         const dailyTotal = dailyCosts[i];
-        totalsRowHtml += `<td style="font-weight: bold;">$${dailyTotal.toFixed(2)}</td>`;
+        
+        // Calculate which date this column represents to check if it's a weekend
+        const date = new Date();
+        const daysBack = 10 - i;
+        date.setDate(date.getDate() - daysBack);
+        const dayOfWeek = date.getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        
+        // Apply weekend styling to totals row cells
+        const weekendStyle = isWeekend ? ' background-color: #ffebee;' : '';
+        totalsRowHtml += `<td style="font-weight: bold;${weekendStyle}">$${dailyTotal.toFixed(2)}</td>`;
         grandTotal += dailyTotal;
     }
     
@@ -978,8 +1019,12 @@ async function updateCostAttributionHeaders() {
             
             if (isWeekend) {
                 headerElement.classList.add('weekend');
+                headerElement.style.backgroundColor = '#ffebee'; // Soft red background
+                headerElement.style.color = ''; // Keep default black text color
             } else {
                 headerElement.classList.remove('weekend');
+                headerElement.style.backgroundColor = ''; // Reset to default
+                headerElement.style.color = ''; // Reset to default
             }
         }
     }
@@ -1007,8 +1052,12 @@ async function updateCostAnalysisHeaders() {
             
             if (isWeekend) {
                 headerElement.classList.add('weekend');
+                headerElement.style.backgroundColor = '#ffebee'; // Soft red background
+                headerElement.style.color = ''; // Keep default black text color
             } else {
                 headerElement.classList.remove('weekend');
+                headerElement.style.backgroundColor = ''; // Reset to default
+                headerElement.style.color = ''; // Reset to default
             }
         }
     }

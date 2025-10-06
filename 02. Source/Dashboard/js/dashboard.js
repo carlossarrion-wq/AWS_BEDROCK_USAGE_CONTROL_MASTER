@@ -1911,8 +1911,12 @@ function updateConsumptionDetailsHeaders() {
             
             if (isWeekend) {
                 headerElement.classList.add('weekend');
+                headerElement.style.backgroundColor = '#ffebee'; // Soft red background
+                headerElement.style.color = ''; // Keep default black text color
             } else {
                 headerElement.classList.remove('weekend');
+                headerElement.style.backgroundColor = ''; // Reset to default
+                headerElement.style.color = ''; // Reset to default
             }
         }
     }
@@ -3150,6 +3154,23 @@ function renderConsumptionDetailsPage() {
     
     console.log('📊 FIXED: Global daily totals (all users):', globalDailyTotals);
     
+    // Calculate which columns are weekends (same logic as headers)
+    const weekendColumns = [];
+    for (let i = 0; i < 10; i++) {
+        const date = new Date();
+        const daysBack = 9 - i;
+        date.setDate(date.getDate() - daysBack);
+        
+        const dayOfWeek = date.getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        
+        if (isWeekend) {
+            weekendColumns.push(i);
+        }
+    }
+    
+    console.log('📊 Weekend columns (0-9):', weekendColumns);
+    
     // Render the rows for current page
     pageData.forEach(userData => {
         let rowHtml = `
@@ -3159,9 +3180,11 @@ function renderConsumptionDetailsPage() {
                 <td>${userData.userTeam}</td>
         `;
         
-        // Add daily consumption data
+        // Add daily consumption data with weekend styling
         userData.dailyConsumption.forEach((consumption, index) => {
-            rowHtml += `<td>${consumption}</td>`;
+            const isWeekend = weekendColumns.includes(index);
+            const style = isWeekend ? ' style="background-color: #ffebee;"' : '';
+            rowHtml += `<td${style}>${consumption}</td>`;
             pageDailyTotals[index] += consumption;
         });
         
@@ -3169,7 +3192,7 @@ function renderConsumptionDetailsPage() {
         tableBody.innerHTML += rowHtml;
     });
     
-    // Add totals row for current page
+    // Add totals row for current page with weekend styling
     if (pageData.length > 0) {
         let totalsRowHtml = `
             <tr style="border-top: 2px solid #1e4a72; background-color: #f8f9fa;">
@@ -3179,7 +3202,9 @@ function renderConsumptionDetailsPage() {
         `;
         
         for (let i = 0; i < 10; i++) {
-            totalsRowHtml += `<td style="font-weight: bold;">${pageDailyTotals[i]}</td>`;
+            const isWeekend = weekendColumns.includes(i);
+            const bgColor = isWeekend ? '#ffebee' : '#f8f9fa';
+            totalsRowHtml += `<td style="font-weight: bold; background-color: ${bgColor};">${pageDailyTotals[i]}</td>`;
         }
         
         totalsRowHtml += '</tr>';
