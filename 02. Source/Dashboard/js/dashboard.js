@@ -204,20 +204,40 @@ async function configureAWSWithRole(accessKey, secretKey) {
 async function checkCredentials() {
     const accessKey = sessionStorage.getItem('aws_access_key');
     const secretKey = sessionStorage.getItem('aws_secret_key');
+    const sessionValidated = sessionStorage.getItem('aws_session_validated');
     
+    // Check if credentials exist
     if (!accessKey || !secretKey) {
         window.location.href = 'login.html?error=no_credentials';
+        return;
+    }
+    
+    // Check if session was properly validated during login
+    if (sessionValidated !== 'true') {
+        console.warn('⚠️ Session not validated, redirecting to login');
+        sessionStorage.clear();
+        window.location.href = 'login.html?error=invalid_session';
         return;
     }
     
     currentUserAccessKey = accessKey;
     
     try {
+        // Re-validate session is still active by attempting to assume role
         await configureAWSWithRole(accessKey, secretKey);
         await loadQuotaConfig();
         await loadDashboardData();
     } catch (error) {
         console.error('Error configuring AWS:', error);
+        
+        // If role assumption fails, session may have expired
+        if (error.code === 'ExpiredToken' || error.code === 'InvalidClientTokenId') {
+            console.error('❌ Session expired or invalid, redirecting to login');
+            sessionStorage.clear();
+            window.location.href = 'login.html?error=invalid_session';
+            return;
+        }
+        
         showErrorMessage('Failed to connect to AWS. Please check your credentials and try again.');
         updateConnectionStatus('disconnected', 'Connection failed');
     }

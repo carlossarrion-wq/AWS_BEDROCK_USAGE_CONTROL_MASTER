@@ -10,6 +10,7 @@
     <link href="https://d1tzzh0q3mh5bp.cloudfront.net/fonts/amazon-ember/amazon-ember.css" rel="stylesheet">
     
     <script src="https://cdn.jsdelivr.net/npm/aws-sdk@2.1048.0/dist/aws-sdk.min.js"></script>
+    <script src="js/config.js"></script>
     <style>
         /* Modern Clean Login Styles - Matching Dashboard Design */
         * {
@@ -131,12 +132,12 @@
             margin-top: 1rem;
         }
 
-        .login-button:hover {
+        .login-button:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(49, 151, 149, 0.4);
         }
 
-        .login-button:active {
+        .login-button:active:not(:disabled) {
             transform: translateY(0);
         }
 
@@ -160,9 +161,18 @@
 
         .alert.show {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 0.75rem;
             animation: slideIn 0.3s ease;
+        }
+
+        .alert-content {
+            flex: 1;
+        }
+
+        .alert-content strong {
+            display: block;
+            margin-bottom: 0.25rem;
         }
 
         @keyframes slideIn {
@@ -206,6 +216,40 @@
         .security-note strong {
             display: block;
             margin-bottom: 0.5rem;
+        }
+
+        .validation-steps {
+            background: rgba(237, 242, 247, 0.8);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .validation-steps.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        .validation-step {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0;
+            color: #4a5568;
+        }
+
+        .validation-step.success {
+            color: #38a169;
+        }
+
+        .validation-step.error {
+            color: #e53e3e;
+        }
+
+        .validation-step.pending {
+            color: #718096;
         }
 
         /* Responsive Design */
@@ -275,9 +319,21 @@
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 20px; height: 20px; flex-shrink: 0;">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                 </svg>
-                <div>
+                <div class="alert-content">
                     <strong>Authentication Error</strong>
                     <span id="error-text"></span>
+                </div>
+            </div>
+
+            <div class="validation-steps" id="validation-steps">
+                <div class="validation-step pending" id="step-credentials">
+                    <span>⏳</span> Validating AWS credentials...
+                </div>
+                <div class="validation-step pending" id="step-role">
+                    <span>⏳</span> Assuming dashboard role...
+                </div>
+                <div class="validation-step pending" id="step-permissions">
+                    <span>⏳</span> Verifying permissions...
                 </div>
             </div>
 
@@ -303,23 +359,33 @@
 
             <div class="security-note">
                 <strong>🔒 Security Notice</strong>
-                Your credentials are stored securely in your browser session and are only used to authenticate with AWS services. They are never transmitted to external servers.
+                Your credentials are validated against AWS and stored securely in your browser session. They are only used to authenticate with AWS services and are never transmitted to external servers.
             </div>
         </div>
     </div>
 
     <script>
-        // AWS Configuration
-        const region = 'eu-west-1';
+        // AWS Configuration from config.js
+        const region = AWS_CONFIG.region;
+        const dashboardRoleArn = AWS_CONFIG.dashboard_role_arn;
+        const externalId = AWS_CONFIG.external_id;
         
-        // Login function - matches original behavior
-        function login() {
+        // Validation state
+        let validationInProgress = false;
+        
+        // Login function with proper validation
+        async function login() {
+            if (validationInProgress) {
+                return;
+            }
+            
             const accessKey = document.getElementById('access-key').value.trim();
             const secretKey = document.getElementById('secret-key').value.trim();
             const loginBtn = document.getElementById('login-btn');
             
             // Hide any existing errors
             hideError();
+            hideValidationSteps();
             
             // Validation
             if (!accessKey || !secretKey) {
@@ -328,14 +394,20 @@
             }
             
             // Show loading state
+            validationInProgress = true;
             loginBtn.disabled = true;
             loginBtn.innerHTML = `
                 <div class="loading-spinner"></div>
-                Signing in...
+                Validating credentials...
             `;
             
+            // Show validation steps
+            showValidationSteps();
+            
             try {
-                // Initialize AWS SDK (basic setup like original)
+                // Step 1: Validate credentials with STS GetCallerIdentity
+                updateValidationStep('step-credentials', 'pending', 'Validating AWS credentials...');
+                
                 AWS.config.update({
                     region: region,
                     credentials: new AWS.Credentials({
@@ -344,9 +416,100 @@
                     })
                 });
                 
+                const sts = new AWS.STS();
+                
+                let callerIdentity;
+                try {
+                    callerIdentity = await sts.getCallerIdentity().promise();
+                    console.log('✅ Credentials validated:', callerIdentity);
+                    updateValidationStep('step-credentials', 'success', `✓ Credentials validated for ${callerIdentity.Arn}`);
+                } catch (error) {
+                    console.error('❌ Invalid credentials:', error);
+                    updateValidationStep('step-credentials', 'error', '✗ Invalid AWS credentials');
+                    throw new Error('Invalid AWS credentials. Please check your Access Key ID and Secret Access Key.');
+                }
+                
+                // Step 2: Attempt to assume the dashboard role
+                updateValidationStep('step-role', 'pending', 'Assuming dashboard role...');
+                
+                const assumeRoleParams = {
+                    RoleArn: dashboardRoleArn,
+                    RoleSessionName: 'bedrock-dashboard-session',
+                    ExternalId: externalId,
+                    DurationSeconds: 3600 // 1 hour
+                };
+                
+                let assumedRole;
+                try {
+                    assumedRole = await sts.assumeRole(assumeRoleParams).promise();
+                    console.log('✅ Successfully assumed dashboard role');
+                    updateValidationStep('step-role', 'success', '✓ Dashboard role assumed successfully');
+                } catch (error) {
+                    console.error('❌ Failed to assume role:', error);
+                    updateValidationStep('step-role', 'error', '✗ Failed to assume dashboard role');
+                    
+                    let errorMessage = 'Unable to assume the dashboard role. ';
+                    if (error.code === 'AccessDenied') {
+                        errorMessage += 'Your credentials do not have permission to assume this role. Please contact your administrator.';
+                    } else {
+                        errorMessage += `Error: ${error.message}`;
+                    }
+                    throw new Error(errorMessage);
+                }
+                
+                // Step 3: Verify permissions with the assumed role
+                updateValidationStep('step-permissions', 'pending', 'Verifying permissions...');
+                
+                // Update AWS config with assumed role credentials
+                AWS.config.update({
+                    credentials: new AWS.Credentials({
+                        accessKeyId: assumedRole.Credentials.AccessKeyId,
+                        secretAccessKey: assumedRole.Credentials.SecretAccessKey,
+                        sessionToken: assumedRole.Credentials.SessionToken
+                    })
+                });
+                
+                // Test CloudWatch access (optional - dashboard works with MySQL data)
+                let hasCloudWatch = false;
+                try {
+                    const cloudwatch = new AWS.CloudWatch({ region: region });
+                    await cloudwatch.listMetrics({ Limit: 1 }).promise();
+                    console.log('✅ CloudWatch access verified');
+                    hasCloudWatch = true;
+                } catch (error) {
+                    console.warn('⚠️ CloudWatch access limited:', error);
+                    // CloudWatch is optional - dashboard uses MySQL data primarily
+                }
+                
+                // Test IAM access (optional - user data comes from MySQL)
+                let hasIAM = false;
+                try {
+                    const iam = new AWS.IAM();
+                    await iam.listUsers({ MaxItems: 1 }).promise();
+                    console.log('✅ IAM access verified');
+                    hasIAM = true;
+                } catch (error) {
+                    console.warn('⚠️ IAM access limited:', error);
+                    // IAM access is optional - user data comes from MySQL
+                }
+                
+                // Build permission status message
+                let permissionMessage = '✓ Dashboard role permissions verified';
+                if (!hasCloudWatch && !hasIAM) {
+                    permissionMessage = '✓ Basic permissions verified (CloudWatch/IAM optional)';
+                } else if (!hasCloudWatch) {
+                    permissionMessage = '✓ IAM access verified (CloudWatch optional)';
+                } else if (!hasIAM) {
+                    permissionMessage = '✓ CloudWatch access verified (IAM optional)';
+                }
+                
+                updateValidationStep('step-permissions', 'success', permissionMessage);
+                
                 // Store credentials in session storage
                 sessionStorage.setItem('aws_access_key', accessKey);
                 sessionStorage.setItem('aws_secret_key', secretKey);
+                sessionStorage.setItem('aws_session_validated', 'true');
+                sessionStorage.setItem('aws_user_arn', callerIdentity.Arn);
                 
                 // Success feedback
                 loginBtn.innerHTML = `
@@ -359,12 +522,13 @@
                 // Redirect to dashboard after brief delay
                 setTimeout(() => {
                     window.location.href = 'bedrock_usage_dashboard_modular.html';
-                }, 800);
+                }, 1000);
                 
             } catch (error) {
-                console.error('Error setting up credentials:', error);
+                console.error('❌ Authentication failed:', error);
                 
                 // Reset button state
+                validationInProgress = false;
                 loginBtn.disabled = false;
                 loginBtn.innerHTML = `
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 20px; height: 20px;">
@@ -373,8 +537,38 @@
                     Sign In
                 `;
                 
-                showError('Error setting up credentials. Please check and try again.');
+                showError(error.message || 'Authentication failed. Please try again.');
             }
+        }
+        
+        // Show/hide validation steps
+        function showValidationSteps() {
+            const stepsElement = document.getElementById('validation-steps');
+            stepsElement.classList.add('show');
+            
+            // Reset all steps to pending
+            updateValidationStep('step-credentials', 'pending', 'Validating AWS credentials...');
+            updateValidationStep('step-role', 'pending', 'Assuming dashboard role...');
+            updateValidationStep('step-permissions', 'pending', 'Verifying permissions...');
+        }
+        
+        function hideValidationSteps() {
+            const stepsElement = document.getElementById('validation-steps');
+            stepsElement.classList.remove('show');
+        }
+        
+        // Update validation step status
+        function updateValidationStep(stepId, status, message) {
+            const stepElement = document.getElementById(stepId);
+            if (!stepElement) return;
+            
+            stepElement.className = `validation-step ${status}`;
+            
+            let icon = '⏳';
+            if (status === 'success') icon = '✓';
+            if (status === 'error') icon = '✗';
+            
+            stepElement.innerHTML = `<span>${icon}</span> ${message}`;
         }
         
         // Show error message with animation
@@ -394,7 +588,7 @@
         
         // Handle Enter key press
         document.addEventListener('keypress', function(event) {
-            if (event.key === 'Enter') {
+            if (event.key === 'Enter' && !validationInProgress) {
                 login();
             }
         });
@@ -404,6 +598,8 @@
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('error') === 'no_credentials') {
                 showError('Session expired or no credentials found. Please login again.');
+            } else if (urlParams.get('error') === 'invalid_session') {
+                showError('Your session is invalid. Please login again.');
             }
             
             // Focus on first input field
