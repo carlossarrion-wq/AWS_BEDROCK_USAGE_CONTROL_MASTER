@@ -1325,6 +1325,8 @@ def handle_cloudtrail_event(event: Dict[str, Any], context: Any) -> Dict[str, An
                     logger.info(f"📊 This appears to be a Knowledge Base session, excluding from usage tracking per business requirements")
                     continue
                 
+                logger.info(f"✅ Processing request from user {user_id} - Team: {team}, Person: {person}")
+                
                 ensure_user_exists(connection, user_id, team, person)
                 
                 # 1. ALWAYS check if user is currently blocked and handle automatic unblocking
