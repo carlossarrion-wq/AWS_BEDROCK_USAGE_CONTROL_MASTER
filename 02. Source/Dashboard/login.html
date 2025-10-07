@@ -339,7 +339,7 @@
 
             <div class="credentials-form">
                 <h2>AWS Credentials</h2>
-                <p>Enter your AWS credentials to access CloudWatch metrics and usage data.</p>
+                <p id="instruction-text">Enter your AWS credentials to access CloudWatch metrics and usage data.</p>
                 
                 <div class="form-group">
                     <input type="text" id="access-key" class="form-control" placeholder="Access Key ID" autocomplete="username">
@@ -543,10 +543,11 @@
         
         // Show/hide validation steps
         function showValidationSteps() {
-            const stepsElement = document.getElementById('validation-steps');
-            stepsElement.classList.add('show');
+            // Don't show the validation steps box - only update instruction text
+            // const stepsElement = document.getElementById('validation-steps');
+            // stepsElement.classList.add('show');
             
-            // Reset all steps to pending
+            // Reset all steps to pending (this will update instruction text)
             updateValidationStep('step-credentials', 'pending', 'Validating AWS credentials...');
             updateValidationStep('step-role', 'pending', 'Assuming dashboard role...');
             updateValidationStep('step-permissions', 'pending', 'Verifying permissions...');
@@ -555,6 +556,9 @@
         function hideValidationSteps() {
             const stepsElement = document.getElementById('validation-steps');
             stepsElement.classList.remove('show');
+            
+            // Reset instruction text to default
+            updateInstructionText('Enter your AWS credentials to access CloudWatch metrics and usage data.');
         }
         
         // Update validation step status
@@ -569,6 +573,17 @@
             if (status === 'error') icon = '✗';
             
             stepElement.innerHTML = `<span>${icon}</span> ${message}`;
+            
+            // Also update the instruction text to show the current message
+            updateInstructionText(message);
+        }
+        
+        // Update instruction text with current validation message
+        function updateInstructionText(message) {
+            const instructionElement = document.getElementById('instruction-text');
+            if (instructionElement) {
+                instructionElement.textContent = message;
+            }
         }
         
         // Show error message with animation
