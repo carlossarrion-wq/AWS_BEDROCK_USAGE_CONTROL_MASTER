@@ -659,9 +659,10 @@ async function loadCostVsRequestsTable(costData, users, userMetrics) {
     
     // FIXED: Generate table rows for last 10 days in ASCENDING date order (oldest to newest)
     // Display positions 0-9 map directly to data array indices 0-9
+    // Data array structure: index 0 = 9 days ago, index 9 = today
     for (let displayPos = 0; displayPos < 10; displayPos++) {
         const date = new Date(cetToday);
-        const daysBack = 10 - displayPos; // Start from 10 days ago (displayPos=0), end at 1 day ago (displayPos=9)
+        const daysBack = 9 - displayPos; // displayPos 0 = 9 days ago, displayPos 9 = today
         date.setDate(date.getDate() - daysBack);
         
         // Direct mapping: display position = data array index
