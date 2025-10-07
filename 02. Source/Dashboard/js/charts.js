@@ -981,10 +981,10 @@ async function updateCostPerRequestChart(dailyTotals, users = null, userMetrics 
     console.log('🕐 Charts.js Cost Per Request using CET date:', cetTodayStr);
     
     // CRITICAL FIX: Generate labels to match table date order
-    // index 0 should be 9 days ago, index 9 should be today
+    // Chart was showing dates 2 days ahead, so we need to add 2 to daysBack
     for (let i = 0; i < 10; i++) {
         const date = new Date(cetToday);
-        const daysBack = 9 - i; // i=0 -> 9 days ago, i=9 -> today
+        const daysBack = 11 - i; // i=0 -> 11 days ago, i=9 -> 2 days ago (yesterday)
         date.setDate(date.getDate() - daysBack);
         
         dateLabels.push(moment(date).format('D MMM'));
@@ -1168,9 +1168,8 @@ async function updateCostRequestsCorrelationChart(dailyTotals, users = null, use
         
         scatterData = dailyTotals.map((cost, index) => {
             const date = new Date(cetToday);
-            // CRITICAL FIX: Correct date calculation to match table
-            // index 0 should be 9 days ago, index 9 should be today
-            const daysBack = 9 - index;
+            // CRITICAL FIX: Chart was showing dates 2 days ahead, so add 2 to daysBack
+            const daysBack = 12 - index; // i=0 -> 12 days ago, i=9 -> 3 days ago
             date.setDate(date.getDate() - daysBack);
             return {
                 x: dailyRequests[index],
