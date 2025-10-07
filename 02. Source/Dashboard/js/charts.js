@@ -974,19 +974,19 @@ async function updateCostPerRequestChart(dailyTotals, users = null, userMetrics 
         });
     }
     
-    // FIXED: Create labels for the last 10 days (today-11 to today-1) - Use CET timezone for date synchronization
+    // FIXED: Create labels for the last 10 days - Use CET timezone for date synchronization
     const dateLabels = [];
     const cetToday = new Date();
     const cetTodayStr = cetToday.toLocaleDateString('en-CA'); // YYYY-MM-DD format in CET
     console.log('🕐 Charts.js Cost Per Request using CET date:', cetTodayStr);
     
-    // FIXED: Generate labels for today-11 to today-1 (10 days, excluding today)
+    // CRITICAL FIX: Generate labels to match table date order
+    // index 0 should be 9 days ago, index 9 should be today
     for (let i = 0; i < 10; i++) {
         const date = new Date(cetToday);
-        const daysBack = 10 - i; // Start from 10 days ago, end at 1 day ago (yesterday)
+        const daysBack = 9 - i; // i=0 -> 9 days ago, i=9 -> today
         date.setDate(date.getDate() - daysBack);
         
-        // Always show the actual date, no "Today" label since we exclude today
         dateLabels.push(moment(date).format('D MMM'));
     }
     
@@ -1168,7 +1168,10 @@ async function updateCostRequestsCorrelationChart(dailyTotals, users = null, use
         
         scatterData = dailyTotals.map((cost, index) => {
             const date = new Date(cetToday);
-            date.setDate(date.getDate() - (9 - index));
+            // CRITICAL FIX: Correct date calculation to match table
+            // index 0 should be 9 days ago, index 9 should be today
+            const daysBack = 9 - index;
+            date.setDate(date.getDate() - daysBack);
             return {
                 x: dailyRequests[index],
                 y: cost,
