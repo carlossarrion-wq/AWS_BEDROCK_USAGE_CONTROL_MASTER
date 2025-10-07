@@ -657,19 +657,20 @@ async function loadCostVsRequestsTable(costData, users, userMetrics) {
     // Store cost per request data for the chart (global variable)
     window.costPerRequestTableData = Array(10).fill(0);
     
-    // FIXED: Generate table rows for last 10 days (today-11 to today-1) in ASCENDING date order (oldest to newest)
-    for (let i = 9; i >= 0; i--) {
+    // FIXED: Generate table rows for last 10 days in ASCENDING date order (oldest to newest)
+    // Display positions 0-9 map directly to data array indices 0-9
+    for (let displayPos = 0; displayPos < 10; displayPos++) {
         const date = new Date(cetToday);
-        const daysBack = i + 1; // Start from 10 days ago, end at 1 day ago (yesterday)
+        const daysBack = 10 - displayPos; // Start from 10 days ago (displayPos=0), end at 1 day ago (displayPos=9)
         date.setDate(date.getDate() - daysBack);
         
-        // Use the correctly mapped data - no complex position shifting needed
-        const cost = dailyCosts[9-i] || 0;
-        const requests = dailyRequests[9-i] || 0; // Use the same index mapping as cost data
+        // Direct mapping: display position = data array index
+        const cost = dailyCosts[displayPos] || 0;
+        const requests = dailyRequests[displayPos] || 0;
         const costPerRequest = requests > 0 ? cost / requests : 0;
         
         // Store cost per request data for the chart (in chronological order)
-        window.costPerRequestTableData[9-i] = costPerRequest;
+        window.costPerRequestTableData[displayPos] = costPerRequest;
         
         // Calculate efficiency rating with updated thresholds
         let efficiencyRating = 'N/A';
@@ -691,13 +692,11 @@ async function loadCostVsRequestsTable(costData, users, userMetrics) {
         let costTrend = '-';
         let requestTrend = '-';
         
-        // Current day is at index (9-i), previous day is at index (9-i-1)
-        const currentDayIndex = 9 - i;
-        const previousDayIndex = currentDayIndex - 1;
-        
-        if (previousDayIndex >= 0) {
-            const prevCost = dailyCosts[previousDayIndex];
-            const prevRequests = dailyRequests[previousDayIndex];
+        // For trend calculation: compare current day with previous day
+        // displayPos represents days in ascending order (0=oldest, 9=newest)
+        if (displayPos > 0) {
+            const prevCost = dailyCosts[displayPos - 1];
+            const prevRequests = dailyRequests[displayPos - 1];
             
             // Calculate cost trend - show percentage if previous day had cost
             if (prevCost > 0) {
