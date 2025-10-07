@@ -658,14 +658,18 @@ async function loadCostVsRequestsTable(costData, users, userMetrics) {
     window.costPerRequestTableData = Array(10).fill(0);
     
     // FIXED: Generate table rows for last 10 days in ASCENDING date order (oldest to newest)
-    // Display positions 0-9 map directly to data array indices 0-9
-    // Data array structure: index 0 = 9 days ago, index 9 = today
+    // MySQL data structure: indices 1-10 represent day-9 through today
+    // Display positions 0-9 should map to MySQL indices 1-10
     for (let displayPos = 0; displayPos < 10; displayPos++) {
         const date = new Date(cetToday);
         const daysBack = 9 - displayPos; // displayPos 0 = 9 days ago, displayPos 9 = today
         date.setDate(date.getDate() - daysBack);
         
-        // Direct mapping: display position = data array index
+        // CRITICAL FIX: Map display position to correct MySQL data index
+        // displayPos 0 (9 days ago) → MySQL index 1
+        // displayPos 9 (today) → MySQL index 10
+        // But our dailyCosts and dailyRequests arrays were already mapped to indices 0-9
+        // So we use displayPos directly since the data was already correctly mapped above
         const cost = dailyCosts[displayPos] || 0;
         const requests = dailyRequests[displayPos] || 0;
         const costPerRequest = requests > 0 ? cost / requests : 0;
