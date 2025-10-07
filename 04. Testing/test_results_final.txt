@@ -1,0 +1,45 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.13.7, pytest-8.4.2, pluggy-1.6.0 -- /Users/csarrion/Cline/AWS_BEDROCK_USAGE_CONTROL_MASTER/04. Testing/test_env/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/csarrion/Cline/AWS_BEDROCK_USAGE_CONTROL_MASTER/04. Testing
+configfile: pytest.ini
+plugins: mock-3.15.1
+collecting ... collected 26 items
+
+test_bedrock_daily_reset_unit.py::TestTimezoneFunctions::test_get_current_cet_time PASSED [  3%]
+test_bedrock_daily_reset_unit.py::TestTimezoneFunctions::test_get_cet_timestamp_string PASSED [  7%]
+test_bedrock_daily_reset_unit.py::TestDatabaseConnection::test_get_mysql_connection_success PASSED [ 11%]
+test_bedrock_daily_reset_unit.py::TestDatabaseConnection::test_get_mysql_connection_reconnect PASSED [ 15%]
+test_bedrock_daily_reset_unit.py::TestUserUnblocking::test_execute_user_unblocking_success PASSED [ 19%]
+test_bedrock_daily_reset_unit.py::TestUserUnblocking::test_execute_user_unblocking_database_error PASSED [ 23%]
+test_bedrock_daily_reset_unit.py::TestUserUnblocking::test_execute_user_unblocking_iam_failure_continues PASSED [ 26%]
+test_bedrock_daily_reset_unit.py::TestIAMPolicyManagement::test_implement_iam_unblocking_removes_deny PASSED [ 30%]
+test_bedrock_daily_reset_unit.py::TestIAMPolicyManagement::test_implement_iam_unblocking_adds_allow_if_missing PASSED [ 34%]
+test_bedrock_daily_reset_unit.py::TestIAMPolicyManagement::test_implement_iam_unblocking_no_policy_exists FAILED [ 38%]
+test_bedrock_daily_reset_unit.py::TestEmailNotifications::test_send_reset_email_notification_success PASSED [ 42%]
+test_bedrock_daily_reset_unit.py::TestEmailNotifications::test_send_reset_email_notification_failure PASSED [ 46%]
+test_bedrock_daily_reset_unit.py::TestAdministrativeSafeFlag::test_remove_administrative_safe_flag_success PASSED [ 50%]
+test_bedrock_daily_reset_unit.py::TestAdministrativeSafeFlag::test_remove_administrative_safe_flag_no_flag_set PASSED [ 53%]
+test_bedrock_daily_reset_unit.py::TestAdministrativeSafeFlag::test_remove_administrative_safe_flag_database_error PASSED [ 57%]
+test_bedrock_daily_reset_unit.py::TestUnblockAndNotifyWorkflow::test_unblock_all_blocked_users_success PASSED [ 61%]
+test_bedrock_daily_reset_unit.py::TestUnblockAndNotifyWorkflow::test_unblock_all_blocked_users_partial_failure PASSED [ 65%]
+test_bedrock_daily_reset_unit.py::TestUnblockAndNotifyWorkflow::test_unblock_all_blocked_users_no_users PASSED [ 69%]
+test_bedrock_daily_reset_unit.py::TestErrorHandling::test_send_error_notification_success PASSED [ 73%]
+test_bedrock_daily_reset_unit.py::TestErrorHandling::test_send_error_notification_sns_failure PASSED [ 76%]
+test_bedrock_daily_reset_unit.py::TestLambdaHandler::test_lambda_handler_success PASSED [ 80%]
+test_bedrock_daily_reset_unit.py::TestLambdaHandler::test_lambda_handler_database_connection_failure PASSED [ 84%]
+test_bedrock_daily_reset_unit.py::TestLambdaHandler::test_lambda_handler_partial_success PASSED [ 88%]
+test_bedrock_daily_reset_unit.py::TestEdgeCases::test_unblock_user_with_null_blocked_until PASSED [ 92%]
+test_bedrock_daily_reset_unit.py::TestEdgeCases::test_user_with_special_characters_in_id PASSED [ 96%]
+test_bedrock_daily_reset_unit.py::TestEdgeCases::test_concurrent_execution_safety PASSED [100%]
+
+=================================== FAILURES ===================================
+____ TestIAMPolicyManagement.test_implement_iam_unblocking_no_policy_exists ____
+test_bedrock_daily_reset_unit.py:337: in test_implement_iam_unblocking_no_policy_exists
+    assert result is True
+E   assert False is True
+------------------------------ Captured log call -------------------------------
+ERROR    root:lambda_function.py:392 ❌ Failed to remove IAM deny policy for user test.user: catching classes that do not inherit from BaseException is not allowed
+=========================== short test summary info ============================
+FAILED test_bedrock_daily_reset_unit.py::TestIAMPolicyManagement::test_implement_iam_unblocking_no_policy_exists
+========================= 1 failed, 25 passed in 0.18s =========================
