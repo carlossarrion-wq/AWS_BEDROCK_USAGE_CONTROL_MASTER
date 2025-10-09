@@ -2063,6 +2063,9 @@ async function loadModelUsageData() {
         // NEW: Update the model consumption evolution chart
         await loadModelConsumptionEvolutionChart();
         
+        // NEW: Update the user agent chart
+        await loadUserAgentChart();
+        
     } catch (error) {
         console.error('❌ Error loading dynamic model usage data:', error);
         tableBody.innerHTML = `
@@ -2073,6 +2076,7 @@ async function loadModelUsageData() {
         
         // Update chart with empty data on error
         updateModelConsumptionEvolutionChart({});
+        updateUserAgentChart({});
     }
 }
 
@@ -3641,5 +3645,244 @@ window.loadUserBlockingDataWithPagination = loadUserBlockingDataWithPagination;
 window.loadPreviousBlockingStatusPage = loadPreviousBlockingStatusPage;
 window.loadNextBlockingStatusPage = loadNextBlockingStatusPage;
 
+// NEW: Function to load user agent chart data
+async function loadUserAgentChart() {
+    try {
+        console.log('📊 Loading USER AGENT chart data from MySQL database...');
+        
+        // Check if the canvas element exists
+        const canvas = document.getElementById('user-agent-chart');
+        if (!canvas) {
+            console.warn('⚠️ Canvas element user-agent-chart not found, skipping chart');
+            return;
+        }
+        
+        // Query MySQL for user agent usage over the last 10 days
+        // Group by the substring before the first '/' to aggregate similar user agents
+        const query = `
+            SELECT 
+                SUBSTRING_INDEX(user_agent, '/', 1) AS user_agent_prefix,
+                COUNT(*) as request_count
+            FROM bedrock_usage.bedrock_requests
+            WHERE request_timestamp >= DATE_SUB(CURDATE(), INTERVAL 10 DAY)
+            GROUP BY user_agent_prefix
+            ORDER BY request_count DESC
+            LIMIT 10
+        `;
+        
+        console.log('📊 Executing query for user agent data:', query);
+        const results = await window.mysqlDataService.executeQuery(query);
+        
+        console.log('📊 Raw user agent query results:', results);
+        
+        if (!results || results.length === 0) {
+            console.warn('⚠️ No user agent data found for the last 10 days');
+            updateUserAgentChart({});
+            return;
+        }
+        
+        // Prepare data structure: { 'User Agent Prefix': count }
+        const userAgentData = {};
+        
+        results.forEach(row => {
+            const userAgentPrefix = row.user_agent_prefix || 'Unknown';
+            const requestCount = parseInt(row.request_count) || 0;
+            userAgentData[userAgentPrefix] = requestCount;
+        });
+        
+        console.log('📊 Final user agent data:', userAgentData);
+        
+        // Update the chart
+        updateUserAgentChart(userAgentData);
+        
+        console.log('✅ User agent chart updated successfully with REAL DATA from MySQL');
+        
+    } catch (error) {
+        console.error('❌ Error loading user agent chart:', error);
+        
+        // Update chart with empty data on error
+        updateUserAgentChart({});
+    }
+}
+
 // Make the function available globally immediately
 window.refreshConsumptionDetails = refreshConsumptionDetails;
+
+// Active Users Modal Functions
+let activeUsersModalTimeout = null;
+let activeUsersModalShowTimeout = null;
+let activeUsersData = [];
+
+async function showActiveUsersModal() {
+    console.log('📊 Showing active users modal with 2-second delay...');
+    
+    // Clear any existing hide timeout
+    if (activeUsersModalTimeout) {
+        clearTimeout(activeUsersModalTimeout);
+        activeUsersModalTimeout = null;
+    }
+    
+    // Clear any existing show timeout
+    if (activeUsersModalShowTimeout) {
+        clearTimeout(activeUsersModalShowTimeout);
+        activeUsersModalShowTimeout = null;
+    }
+    
+    const modal = document.getElementById('active-users-modal');
+    if (!modal) return;
+    
+    // Add 2-second delay before showing modal
+    activeUsersModalShowTimeout = setTimeout(async () => {
+        // Show modal
+        modal.classList.add('show');
+        
+        // Load active users data if not already loaded
+        if (activeUsersData.length === 0) {
+            await loadActiveUsersData();
+        } else {
+            // Just display the cached data
+            displayActiveUsersInModal(activeUsersData);
+        }
+    }, 2000);
+}
+
+function hideActiveUsersModal(event) {
+    console.log('📊 Hiding active users modal...');
+    
+    // Cancel any pending show timeout
+    if (activeUsersModalShowTimeout) {
+        clearTimeout(activeUsersModalShowTimeout);
+        activeUsersModalShowTimeout = null;
+    }
+    
+    // If event is provided and it's a click on the close button, hide immediately
+    if (event) {
+        event.stopPropagation();
+        const modal = document.getElementById('active-users-modal');
+        if (modal) {
+            modal.classList.remove('show');
+        }
+        return;
+    }
+    
+    // Otherwise, add a small delay before hiding (to allow moving mouse to modal)
+    activeUsersModalTimeout = setTimeout(() => {
+        const modal = document.getElementById('active-users-modal');
+        if (modal) {
+            modal.classList.remove('show');
+        }
+    }, 300);
+}
+
+async function loadActiveUsersData() {
+    console.log('📊 Loading active users data for modal...');
+    
+    const modalBody = document.getElementById('active-users-modal-body');
+    if (!modalBody) return;
+    
+    // Show loading state
+    modalBody.innerHTML = `
+        <div class="modal-loading">
+            <div class="loading-spinner"></div>
+            <p>Loading active users...</p>
+        </div>
+    `;
+    
+    try {
+        // Get today's active users from userMetrics
+        activeUsersData = [];
+        
+        allUsers.forEach(username => {
+            const dailyData = userMetrics[username]?.daily || Array(11).fill(0);
+            const todayRequests = dailyData[10] || 0; // Index 10 is today
+            
+            if (todayRequests > 0) {
+                const personTag = getUserPersonTag(username) || "Unknown";
+                const userTeam = getUserTeamFromDB(username);
+                
+                activeUsersData.push({
+                    username,
+                    personTag,
+                    team: userTeam,
+                    requests: todayRequests
+                });
+            }
+        });
+        
+        // Sort by requests (highest to lowest)
+        activeUsersData.sort((a, b) => b.requests - a.requests);
+        
+        console.log('📊 Loaded', activeUsersData.length, 'active users');
+        
+        // Display the data
+        displayActiveUsersInModal(activeUsersData);
+        
+    } catch (error) {
+        console.error('❌ Error loading active users data:', error);
+        modalBody.innerHTML = `
+            <div class="modal-loading">
+                <p style="color: #e53e3e;">Error loading active users: ${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+function displayActiveUsersInModal(users) {
+    const modalBody = document.getElementById('active-users-modal-body');
+    const modalFooter = document.getElementById('active-users-modal-footer');
+    
+    if (!modalBody) return;
+    
+    if (users.length === 0) {
+        modalBody.innerHTML = `
+            <div class="modal-loading">
+                <p>No active users today</p>
+            </div>
+        `;
+        if (modalFooter) {
+            modalFooter.textContent = 'No users have made requests today';
+        }
+        return;
+    }
+    
+    // Build a clean table with 3 columns: Login, Name, Requests
+    let tableHTML = `
+        <table class="active-users-table">
+            <thead>
+                <tr>
+                    <th>Login</th>
+                    <th>Name</th>
+                    <th>Requests</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    users.forEach(user => {
+        tableHTML += `
+            <tr>
+                <td>${user.username}</td>
+                <td>${user.personTag}</td>
+                <td style="text-align: right;">${user.requests}</td>
+            </tr>
+        `;
+    });
+    
+    tableHTML += `
+            </tbody>
+        </table>
+    `;
+    
+    modalBody.innerHTML = tableHTML;
+    
+    // Update footer with summary
+    if (modalFooter) {
+        const totalRequests = users.reduce((sum, user) => sum + user.requests, 0);
+        modalFooter.textContent = `${users.length} active users • ${totalRequests.toLocaleString()} total requests today`;
+    }
+}
+
+// Make functions globally available
+window.showActiveUsersModal = showActiveUsersModal;
+window.hideActiveUsersModal = hideActiveUsersModal;
+window.loadActiveUsersData = loadActiveUsersData;
