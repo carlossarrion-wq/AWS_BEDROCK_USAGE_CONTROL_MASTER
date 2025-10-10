@@ -993,8 +993,14 @@ function loadDailyCostsData() {
         const changeSymbol = dailyChange >= 0 ? '↗' : '↘';
         const changeClass = dailyChange >= 0 ? 'positive' : 'negative';
         
+        // Check if date is Saturday (6) or Sunday (0)
+        const dateObj = new Date(date);
+        const dayOfWeek = dateObj.getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        const weekendStyle = isWeekend ? ' style="background-color: #FCECEE;"' : '';
+        
         tableBody.innerHTML += `
-            <tr>
+            <tr${weekendStyle}>
                 <td>${formatDate(date)}</td>
                 <td><strong>$${totalCost.toFixed(2)}</strong></td>
                 <td>$${categoryCosts.compute.toFixed(2)}</td>
