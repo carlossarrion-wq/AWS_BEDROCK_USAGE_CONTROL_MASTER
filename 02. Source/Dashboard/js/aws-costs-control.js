@@ -851,27 +851,6 @@ function updateAWSCostAlerts() {
             `;
         }
     }
-    
-    // Budget threshold alerts
-    const monthlyBudget = parseFloat(document.getElementById('monthly-budget')?.value || 1000);
-    const warningThreshold = parseFloat(document.getElementById('warning-threshold')?.value || 80);
-    const criticalThreshold = parseFloat(document.getElementById('critical-threshold')?.value || 95);
-    
-    const budgetUsagePercent = (awsCostData.totalCost / monthlyBudget) * 100;
-    
-    if (budgetUsagePercent >= criticalThreshold) {
-        alertsContainer.innerHTML += `
-            <div class="alert critical">
-                <strong>Critical Budget Alert:</strong> ${budgetUsagePercent.toFixed(1)}% of monthly budget used ($${awsCostData.totalCost.toFixed(2)} / $${monthlyBudget})
-            </div>
-        `;
-    } else if (budgetUsagePercent >= warningThreshold) {
-        alertsContainer.innerHTML += `
-            <div class="alert warning">
-                <strong>Budget Warning:</strong> ${budgetUsagePercent.toFixed(1)}% of monthly budget used ($${awsCostData.totalCost.toFixed(2)} / $${monthlyBudget})
-            </div>
-        `;
-    }
 }
 
 // Load top services data
