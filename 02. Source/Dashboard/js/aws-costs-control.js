@@ -973,9 +973,10 @@ function loadDailyCostsData() {
         console.log(`📊 Category costs for ${date}:`, categoryCosts);
         
         // Calculate daily change (compare with previous day in chronological order)
+        // Since dates are sorted ascending (oldest first), previous day is at index - 1
         let dailyChange = 0;
-        if (index < sortedDates.length - 1) {
-            const previousDate = sortedDates[index + 1];
+        if (index > 0) {
+            const previousDate = sortedDates[index - 1];
             const previousTotal = awsCostData.dailyCosts[previousDate]?.total || 0;
             if (previousTotal > 0) {
                 dailyChange = ((totalCost - previousTotal) / previousTotal * 100);
