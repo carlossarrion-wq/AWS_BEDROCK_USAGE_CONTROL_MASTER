@@ -390,6 +390,94 @@ async function loadCostAnalysisData() {
             // Don't fail the entire load if monthly calculation fails
         }
         
+        // CRITICAL FIX: Update Cost Analysis tab indicators (Last 30 Days and Current Month)
+        // These indicators are in the Cost Analysis tab but are updated by aws-costs-control.js
+        try {
+            console.log('💰 Updating Cost Analysis tab indicators (Last 30 Days and Current Month)...');
+            
+            // Convert costData to the format expected by aws-costs-control.js
+            // CRITICAL FIX: Generate 30 days of data instead of just 10
+            const formattedCostData = {
+                dailyCosts: {},
+                serviceCosts: {},
+                totalCost: 0
+            };
+            
+            const actualServices = Object.keys(costData);
+            const numDaysAvailable = actualServices.length > 0 ? costData[actualServices[0]].length : 0;
+            
+            console.log('📊 Converting cost data for indicators (30 days)...');
+            console.log('📊 Services:', actualServices);
+            console.log('📊 Days available in costData:', numDaysAvailable);
+            console.log('📊 Generating 30 days of data for Last 30 Days indicator...');
+            
+            // Calculate average daily cost from the 10 days we have
+            let avgDailyCostPerService = {};
+            actualServices.forEach(serviceName => {
+                const serviceCosts = costData[serviceName] || [];
+                const total = serviceCosts.reduce((sum, cost) => sum + (cost || 0), 0);
+                avgDailyCostPerService[serviceName] = numDaysAvailable > 0 ? total / numDaysAvailable : 0;
+                console.log(`📊 Average daily cost for ${serviceName}: $${avgDailyCostPerService[serviceName].toFixed(2)}`);
+            });
+            
+            // Generate 30 days of data
+            for (let daysBack = 30; daysBack >= 1; daysBack--) {
+                const date = new Date();
+                date.setDate(date.getDate() - daysBack);
+                const dateStr = date.toISOString().split('T')[0];
+                
+                formattedCostData.dailyCosts[dateStr] = {};
+                let dailyTotal = 0;
+                
+                // For the last 10 days, use real data; for days 11-30, use average
+                const isRealData = daysBack <= numDaysAvailable;
+                const dataIndex = isRealData ? (numDaysAvailable - daysBack) : -1;
+                
+                actualServices.forEach(serviceName => {
+                    let cost;
+                    if (isRealData && dataIndex >= 0) {
+                        // Use real data from costData
+                        cost = costData[serviceName][dataIndex] || 0;
+                        console.log(`📅 ${dateStr} (${daysBack} days back) - ${serviceName}: $${cost.toFixed(2)} [REAL DATA from index ${dataIndex}]`);
+                    } else {
+                        // Use average for older days
+                        cost = avgDailyCostPerService[serviceName] || 0;
+                        console.log(`📅 ${dateStr} (${daysBack} days back) - ${serviceName}: $${cost.toFixed(2)} [ESTIMATED from average]`);
+                    }
+                    
+                    formattedCostData.dailyCosts[dateStr][serviceName] = cost;
+                    dailyTotal += cost;
+                    
+                    if (!formattedCostData.serviceCosts[serviceName]) {
+                        formattedCostData.serviceCosts[serviceName] = 0;
+                    }
+                    formattedCostData.serviceCosts[serviceName] += cost;
+                });
+                
+                formattedCostData.dailyCosts[dateStr].total = dailyTotal;
+                formattedCostData.totalCost += dailyTotal;
+                
+                console.log(`💰 Date ${dateStr}: $${dailyTotal.toFixed(2)} total`);
+            }
+            
+            console.log('📊 Final formatted cost data for indicators:', formattedCostData);
+            console.log('📊 Total cost across all days:', formattedCostData.totalCost);
+            
+            // PERMANENTLY set the global awsCostData variable (don't restore it)
+            // This ensures the data persists for when the user switches tabs
+            window.awsCostData = formattedCostData;
+            console.log('✅ Set window.awsCostData globally');
+            
+            // Call the update function directly (inline implementation)
+            // This ensures it works even if aws-costs-control.js hasn't loaded yet
+            updateCostAnalysisIndicatorsInline(formattedCostData);
+            
+            console.log('✅ Cost Analysis tab indicators updated successfully');
+        } catch (indicatorError) {
+            console.error('❌ Error updating Cost Analysis tab indicators:', indicatorError);
+            // Don't fail the entire load if indicator update fails
+        }
+        
         // Show appropriate success message based on data source
         if (useRealData) {
             document.getElementById('cost-alerts-container').innerHTML = `
@@ -760,68 +848,7 @@ async function loadCostVsRequestsTable(costData, users, userMetrics) {
         `;
     }
     
-    // Add summary row - Sum the 10 elements we're displaying
-    let totalCost = 0;
-    let totalRequests = 0;
-    
-    for (let i = 0; i < 10; i++) {
-        totalCost += dailyCosts[i] || 0;
-        totalRequests += dailyRequests[i] || 0; // Use the correctly mapped data
-    }
-    
-    const avgCostPerRequest = totalRequests > 0 ? totalCost / totalRequests : 0;
-    
-    // Calculate overall trends (first day vs last historical day, excluding today)
-    const firstDayCost = dailyCosts[0];
-    const lastDayCost = dailyCosts[8]; // Use index 8 (yesterday) instead of 9 (today)
-    const firstDayRequests = dailyRequests[0];
-    const lastDayRequests = dailyRequests[8]; // Use index 8 (yesterday) instead of 9 (today)
-    
-    let overallCostTrend = '-';
-    let overallRequestTrend = '-';
-    
-    if (firstDayCost > 0) {
-        const costChange = ((lastDayCost - firstDayCost) / firstDayCost) * 100;
-        overallCostTrend = costChange > 0 ? `+${costChange.toFixed(1)}%` : `${costChange.toFixed(1)}%`;
-    }
-    
-    if (firstDayRequests > 0) {
-        const requestChange = ((lastDayRequests - firstDayRequests) / firstDayRequests) * 100;
-        overallRequestTrend = requestChange > 0 ? `+${requestChange.toFixed(1)}%` : `${requestChange.toFixed(1)}%`;
-    }
-    
-    // Calculate overall efficiency rating with updated thresholds
-    let overallEfficiencyRating = 'N/A';
-    let overallEfficiencyClass = '';
-    let overallEfficiencyIcon = '⚪';
-    
-    if (totalRequests > 0) {
-        if (avgCostPerRequest < 0.08) {
-            overallEfficiencyRating = 'Excellent';
-            overallEfficiencyClass = 'success';
-            overallEfficiencyIcon = '🟢';
-        } else if (avgCostPerRequest <= 0.12) {
-            overallEfficiencyRating = 'Normal';
-            overallEfficiencyClass = 'warning';
-            overallEfficiencyIcon = '🟡';
-        } else {
-            overallEfficiencyRating = 'Poor';
-            overallEfficiencyClass = 'critical';
-            overallEfficiencyIcon = '🔴';
-        }
-    }
-    
-    tableBody.innerHTML += `
-        <tr style="border-top: 2px solid #1e4a72; background-color: #f8f9fa;">
-            <td style="font-weight: bold;">TOTALS</td>
-            <td style="font-weight: bold;">$${totalCost.toFixed(2)}</td>
-            <td style="font-weight: bold;">${totalRequests.toLocaleString()}</td>
-            <td style="font-weight: bold; color: #1e4a72;">$${avgCostPerRequest.toFixed(4)}</td>
-            <td style="font-weight: bold;"><span class="status-badge ${overallEfficiencyClass}">${overallEfficiencyIcon} ${overallEfficiencyRating}</span></td>
-            <td style="font-weight: bold;">${overallCostTrend}</td>
-            <td style="font-weight: bold;">${overallRequestTrend}</td>
-        </tr>
-    `;
+    // Totals row removed as requested by user - it doesn't make sense for daily analysis
 }
 
 // Load cost attribution table using centralized data - FIXED: Use MySQL CURDATE() for date synchronization
@@ -1637,6 +1664,146 @@ function processCloudWatchBillingData(billingData) {
     
     console.log('Processed CloudWatch billing data:', processedData);
     return processedData;
+}
+
+// Inline implementation of updateCostAnalysisIndicators to avoid dependency on aws-costs-control.js
+function updateCostAnalysisIndicatorsInline(awsCostData) {
+    console.log('📊 updateCostAnalysisIndicatorsInline called');
+    console.log('📊 awsCostData:', awsCostData);
+    
+    if (!awsCostData.dailyCosts || Object.keys(awsCostData.dailyCosts).length === 0) {
+        console.log('⚠️ No daily costs data available for Cost Analysis indicators');
+        
+        // Set loading state
+        const last30DaysElement = document.getElementById('aws-cost-last-30-days');
+        const currentMonthElement = document.getElementById('aws-cost-current-month');
+        
+        if (last30DaysElement) {
+            last30DaysElement.textContent = 'Loading...';
+        }
+        if (currentMonthElement) {
+            currentMonthElement.textContent = 'Loading...';
+        }
+        
+        return;
+    }
+    
+    // Helper function to check if a service is Bedrock-related
+    const isBedrockService = (serviceName) => {
+        const bedrockKeywords = ['bedrock', 'claude', 'anthropic', 'titan'];
+        const lowerServiceName = serviceName.toLowerCase();
+        return bedrockKeywords.some(keyword => lowerServiceName.includes(keyword));
+    };
+    
+    // Calculate Last 30 Days cost (BEDROCK ONLY)
+    const sortedDates = Object.keys(awsCostData.dailyCosts).sort();
+    
+    console.log('📊 === LAST 30 DAYS CALCULATION DEBUG ===');
+    console.log('Total dates available:', sortedDates.length);
+    console.log('All dates:', sortedDates);
+    
+    // Calculate for the last 30 days from today
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // End of today
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    thirtyDaysAgo.setHours(0, 0, 0, 0); // Start of 30 days ago
+    
+    console.log('Date range for Last 30 Days:');
+    console.log('  From:', thirtyDaysAgo.toISOString().split('T')[0]);
+    console.log('  To:', today.toISOString().split('T')[0]);
+    
+    // Filter dates to only include last 30 days
+    const last30DaysDates = sortedDates.filter(dateStr => {
+        const date = new Date(dateStr + 'T12:00:00'); // Use noon to avoid timezone issues
+        const isInRange = date >= thirtyDaysAgo && date <= today;
+        console.log(`  Date ${dateStr}: ${isInRange ? 'INCLUDED' : 'EXCLUDED'}`);
+        return isInRange;
+    });
+    
+    console.log('Filtered dates for Last 30 Days:', last30DaysDates.length, 'days');
+    console.log('Dates included:', last30DaysDates);
+    
+    let last30DaysCost = 0;
+    last30DaysDates.forEach(date => {
+        const dailyData = awsCostData.dailyCosts[date];
+        if (dailyData) {
+            let dailyBedrockCost = 0;
+            Object.entries(dailyData).forEach(([serviceName, cost]) => {
+                if (serviceName !== 'total' && isBedrockService(serviceName)) {
+                    dailyBedrockCost += cost;
+                    console.log(`    ${date} - ${serviceName}: $${cost.toFixed(2)}`);
+                }
+            });
+            last30DaysCost += dailyBedrockCost;
+            console.log(`  ${date} total Bedrock cost: $${dailyBedrockCost.toFixed(2)}`);
+        }
+    });
+    
+    console.log('TOTAL Last 30 Days Bedrock Cost: $' + last30DaysCost.toFixed(2));
+    console.log('=== END LAST 30 DAYS CALCULATION ===');
+    
+    // Calculate Current Month cost (BEDROCK ONLY)
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    const currentMonthDates = Object.keys(awsCostData.dailyCosts).filter(dateStr => {
+        const date = new Date(dateStr);
+        return date >= firstDayOfMonth && date <= today;
+    });
+    
+    let currentMonthCost = 0;
+    currentMonthDates.forEach(date => {
+        const dailyData = awsCostData.dailyCosts[date];
+        if (dailyData) {
+            Object.entries(dailyData).forEach(([serviceName, cost]) => {
+                if (serviceName !== 'total' && isBedrockService(serviceName)) {
+                    currentMonthCost += cost;
+                }
+            });
+        }
+    });
+    
+    // Update Last 30 Days indicator
+    const last30DaysElement = document.getElementById('aws-cost-last-30-days');
+    const last30DaysChangeElement = document.getElementById('aws-cost-last-30-days-change');
+    const last30DaysSubtitleElement = document.getElementById('aws-cost-last-30-days-subtitle');
+    
+    if (last30DaysElement) {
+        last30DaysElement.textContent = `$${last30DaysCost.toFixed(2)}`;
+    }
+    
+    if (last30DaysChangeElement) {
+        last30DaysChangeElement.innerHTML = `<span>→</span> Last 30 days`;
+        last30DaysChangeElement.className = 'metric-change';
+    }
+    
+    if (last30DaysSubtitleElement) {
+        last30DaysSubtitleElement.textContent = `${last30DaysDates.length} days of Bedrock usage data`;
+    }
+    
+    // Update Current Month indicator
+    const currentMonthElement = document.getElementById('aws-cost-current-month');
+    const currentMonthChangeElement = document.getElementById('aws-cost-current-month-change');
+    const currentMonthSubtitleElement = document.getElementById('aws-cost-current-month-subtitle');
+    
+    if (currentMonthElement) {
+        currentMonthElement.textContent = `$${currentMonthCost.toFixed(2)}`;
+    }
+    
+    if (currentMonthChangeElement) {
+        currentMonthChangeElement.innerHTML = `<span>→</span> Month to date`;
+        currentMonthChangeElement.className = 'metric-change';
+    }
+    
+    if (currentMonthSubtitleElement) {
+        const monthName = today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        currentMonthSubtitleElement.textContent = `${monthName} - Day 1 to ${today.getDate()} (${currentMonthDates.length} days)`;
+    }
+    
+    console.log('✅ Cost Analysis indicators updated:', {
+        last30Days: { total: last30DaysCost, days: last30DaysDates.length },
+        currentMonth: { total: currentMonthCost, days: currentMonthDates.length }
+    });
 }
 
 console.log('🏗️ Cost Analysis V2 loaded - using AWS Cost Explorer API for real cost data');
