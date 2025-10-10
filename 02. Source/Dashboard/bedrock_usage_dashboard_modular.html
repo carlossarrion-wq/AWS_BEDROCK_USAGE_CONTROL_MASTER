@@ -755,11 +755,150 @@
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
             border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
         }
 
         .metric-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+        
+        /* Active Users Modal Styles */
+        .active-users-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 600px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            z-index: 99999;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: slideDown 0.3s ease;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .active-users-modal.show {
+            display: block;
+        }
+        
+        .modal-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 2px solid #e2e8f0;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            color: #2d3748;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h4 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: #2d3748;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+        
+        .modal-close:hover {
+            opacity: 1;
+        }
+        
+        .modal-body {
+            padding: 0;
+        }
+        
+        .active-user-item {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        
+        .active-user-item:hover {
+            background: #f7fafc;
+        }
+        
+        .active-user-item:last-child {
+            border-bottom: none;
+        }
+        
+        .user-info {
+            flex: 1;
+        }
+        
+        .user-name {
+            font-weight: 500;
+            color: #2d3748;
+            margin-bottom: 0.25rem;
+        }
+        
+        .user-email {
+            font-size: 0.875rem;
+            color: #718096;
+        }
+        
+        .user-stats {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .stat-badge {
+            color: #2d3748;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #e2e8f0;
+            background: #f7fafc;
+            border-radius: 0 0 12px 12px;
+            text-align: center;
+            font-size: 0.875rem;
+            color: #718096;
+        }
+        
+        .modal-loading {
+            padding: 2rem;
+            text-align: center;
+            color: #718096;
+        }
+        
+        .modal-loading .loading-spinner {
+            margin: 0 auto 1rem;
         }
 
         .metric-card h3 {
@@ -880,7 +1019,7 @@
                             <div class="metric-subtitle">Today</div>
                         </div>
                         
-                        <div class="metric-card">
+                        <div class="metric-card" id="active-users-card" onmouseenter="showActiveUsersModal()" onmouseleave="hideActiveUsersModal()">
                             <h3>Active Users</h3>
                             <div class="metric-value" id="user-active-users">-</div>
                             <div class="metric-change positive" id="user-users-change">
@@ -1284,10 +1423,19 @@
                     </table>
                 </div>
                 
-                <div class="card" style="margin-top: 20px;">
-                    <h2>Model Consumption Evolution - Last 10 Days</h2>
-                    <div class="chart-container">
-                        <canvas id="model-consumption-evolution-chart"></canvas>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 20px;">
+                    <div class="card">
+                        <h2>Model Consumption Evolution - Last 10 Days</h2>
+                        <div class="chart-container">
+                            <canvas id="model-consumption-evolution-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h2>Usage by User Agent - Last 10 Days</h2>
+                        <div class="chart-container">
+                            <canvas id="user-agent-chart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1302,19 +1450,29 @@
                     </button>
                 </div>
                 
-                <!-- Top Row: Monthly Cost Indicator (Left) and Alerts (Right) -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
-                    <!-- Left: Monthly Cost Indicator -->
-                    <div class="metric-card" id="monthly-cost-indicator">
-                        <h3>Monthly Bedrock Cost</h3>
-                        <div class="metric-value">$0.00</div>
-                        <div class="metric-change">
+                <!-- Top Row: Two Cost Indicators (25% each) and Alerts (50%) -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 2rem; margin-bottom: 2rem;">
+                    <!-- AWS Bedrock Cost Last 30 Days - 25% width -->
+                    <div class="metric-card" id="aws-cost-last-30-days-indicator">
+                        <h3>AWS Bedrock Cost Last 30 Days</h3>
+                        <div class="metric-value" id="aws-cost-last-30-days">$0.00</div>
+                        <div class="metric-change" id="aws-cost-last-30-days-change">
                             <span>→</span> Loading...
                         </div>
-                        <div class="metric-subtitle">Loading monthly data...</div>
+                        <div class="metric-subtitle" id="aws-cost-last-30-days-subtitle">Loading data...</div>
                     </div>
                     
-                    <!-- Right: Cost Analysis Alerts -->
+                    <!-- AWS Bedrock Cost Current Month - 25% width -->
+                    <div class="metric-card" id="aws-cost-current-month-indicator">
+                        <h3>AWS Bedrock Cost Current Month</h3>
+                        <div class="metric-value" id="aws-cost-current-month">$0.00</div>
+                        <div class="metric-change" id="aws-cost-current-month-change">
+                            <span>→</span> Loading...
+                        </div>
+                        <div class="metric-subtitle" id="aws-cost-current-month-subtitle">Loading data...</div>
+                    </div>
+                    
+                    <!-- Cost Analysis Alerts - 50% width -->
                     <div class="card">
                         <h2>Cost Analysis Alerts</h2>
                         <div id="cost-alerts-container">
@@ -1614,19 +1772,29 @@
                     </div>
                 </div>
                 
-                <!-- Top Row: Monthly AWS Cost Indicator and Service Filters -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
-                    <!-- Left: Monthly AWS Cost Indicator -->
-                    <div class="metric-card" id="monthly-aws-cost-indicator">
-                        <h3>Monthly AWS Cost (All Services)</h3>
-                        <div class="metric-value" id="aws-total-cost">$0.00</div>
-                        <div class="metric-change" id="aws-cost-change">
+                <!-- Top Row: Two Cost Indicators and Service Filters -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 2rem; margin-bottom: 2rem;">
+                    <!-- AWS Cost (All Services) Last 30 Days -->
+                    <div class="metric-card" id="aws-cost-all-services-last-30-days-indicator">
+                        <h3>AWS Cost (All Services) Last 30 Days</h3>
+                        <div class="metric-value" id="aws-cost-all-services-last-30-days">$0.00</div>
+                        <div class="metric-change" id="aws-cost-all-services-last-30-days-change">
                             <span>→</span> Loading...
                         </div>
-                        <div class="metric-subtitle" id="aws-cost-subtitle">Loading monthly data...</div>
+                        <div class="metric-subtitle" id="aws-cost-all-services-last-30-days-subtitle">Loading data...</div>
                     </div>
                     
-                    <!-- Right: Service Filters and Controls -->
+                    <!-- AWS Cost (All Services) Current Month -->
+                    <div class="metric-card" id="aws-cost-all-services-current-month-indicator">
+                        <h3>AWS Cost (All Services) Current Month</h3>
+                        <div class="metric-value" id="aws-cost-all-services-current-month">$0.00</div>
+                        <div class="metric-change" id="aws-cost-all-services-current-month-change">
+                            <span>→</span> Loading...
+                        </div>
+                        <div class="metric-subtitle" id="aws-cost-all-services-current-month-subtitle">Loading data...</div>
+                    </div>
+                    
+                    <!-- Service Filters and Controls -->
                     <div class="card">
                         <h2>Service Filters & Controls</h2>
                         <div class="admin-controls">
@@ -1838,6 +2006,23 @@
                     </table>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Active Users Modal (moved outside to avoid z-index stacking issues) -->
+    <div class="active-users-modal" id="active-users-modal">
+        <div class="modal-header">
+            <h4>Active Users Today</h4>
+            <button class="modal-close" onclick="hideActiveUsersModal(event)">&times;</button>
+        </div>
+        <div class="modal-body" id="active-users-modal-body">
+            <div class="modal-loading">
+                <div class="loading-spinner"></div>
+                <p>Loading active users...</p>
+            </div>
+        </div>
+        <div class="modal-footer" id="active-users-modal-footer">
+            Hover to keep open • Click × to close
         </div>
     </div>
 
