@@ -943,9 +943,9 @@ function loadDailyCostsData() {
         return;
     }
     
-    // Get sorted dates (most recent first) and limit to 30 days
-    const sortedDates = Object.keys(awsCostData.dailyCosts).sort().reverse().slice(0, 30);
-    console.log('📅 Sorted dates for daily costs table:', sortedDates);
+    // Get sorted dates (oldest first - ascending order) and limit to 30 days
+    const sortedDates = Object.keys(awsCostData.dailyCosts).sort().slice(0, 30);
+    console.log('📅 Sorted dates for daily costs table (ascending):', sortedDates);
     
     if (sortedDates.length === 0) {
         tableBody.innerHTML = `
