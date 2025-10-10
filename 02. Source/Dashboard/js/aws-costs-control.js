@@ -995,6 +995,9 @@ function loadDailyCostsData() {
                 <td>$${categoryCosts.database.toFixed(2)}</td>
                 <td>$${categoryCosts.networking.toFixed(2)}</td>
                 <td>$${categoryCosts['ai-ml'].toFixed(2)}</td>
+                <td>$${categoryCosts.analytics.toFixed(2)}</td>
+                <td>$${categoryCosts.security.toFixed(2)}</td>
+                <td>$${categoryCosts.management.toFixed(2)}</td>
                 <td>$${categoryCosts.other.toFixed(2)}</td>
                 <td><span class="metric-change ${changeClass}">${changeSymbol} ${Math.abs(dailyChange).toFixed(1)}%</span></td>
             </tr>
