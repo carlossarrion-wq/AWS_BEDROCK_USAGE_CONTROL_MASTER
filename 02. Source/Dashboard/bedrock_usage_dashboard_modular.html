@@ -1761,18 +1761,7 @@
                     </button>
                 </div>
                 
-                <!-- AWS Cost Alerts & Recommendations - Moved to Top -->
-                <div class="card" style="margin-bottom: 2rem;">
-                    <h2>AWS Cost Alerts & Recommendations</h2>
-                    <div id="aws-cost-alerts-container">
-                        <div class="alert info">
-                            <div class="loading-spinner"></div>
-                            <strong>Loading:</strong> Fetching AWS cost data from Cost Explorer...
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Top Row: Two Cost Indicators and Service Filters -->
+                <!-- Top Row: Two Cost Indicators (25% each) and Alerts (50%) -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 2rem; margin-bottom: 2rem;">
                     <!-- AWS Cost (All Services) Last 30 Days -->
                     <div class="metric-card" id="aws-cost-all-services-last-30-days-indicator">
@@ -1794,34 +1783,45 @@
                         <div class="metric-subtitle" id="aws-cost-all-services-current-month-subtitle">Loading data...</div>
                     </div>
                     
-                    <!-- Service Filters and Controls -->
+                    <!-- AWS Cost Alerts & Recommendations -->
                     <div class="card">
-                        <h2>Service Filters & Controls</h2>
-                        <div class="admin-controls">
-                            <div class="blocking-controls">
-                                <h3>Filter AWS Services</h3>
-                                <div class="block-form">
-                                    <select id="service-category-filter" class="form-control" onchange="filterServicesByCategory()">
-                                        <option value="all">All Services</option>
-                                        <option value="compute">Compute (EC2, Lambda, ECS)</option>
-                                        <option value="storage">Storage (S3, EBS, EFS)</option>
-                                        <option value="database">Database (RDS, DynamoDB)</option>
-                                        <option value="networking">Networking (VPC, CloudFront)</option>
-                                        <option value="ai-ml">AI/ML (Bedrock, SageMaker)</option>
-                                        <option value="analytics">Analytics (Athena, Glue)</option>
-                                        <option value="security">Security (IAM, KMS, WAF)</option>
-                                        <option value="management">Management (CloudWatch, Config)</option>
-                                    </select>
-                                    <select id="time-period-filter" class="form-control" onchange="changeTimePeriod()">
-                                        <option value="7d">Last 7 Days</option>
-                                        <option value="30d" selected>Last 30 Days</option>
-                                        <option value="90d">Last 90 Days</option>
-                                        <option value="12m">Last 12 Months</option>
-                                    </select>
-                                    <button onclick="exportAWSCostsData()" class="btn btn-select-user">
-                                        Export Data
-                                    </button>
-                                </div>
+                        <h2>AWS Cost Alerts & Recommendations</h2>
+                        <div id="aws-cost-alerts-container">
+                            <div class="alert info">
+                                <div class="loading-spinner"></div>
+                                <strong>Loading:</strong> Fetching AWS cost data from Cost Explorer...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Service Filters Row -->
+                <div class="card" style="margin-bottom: 2rem;">
+                    <h2>Service Filters & Controls</h2>
+                    <div class="admin-controls">
+                        <div class="blocking-controls">
+                            <h3>Filter AWS Services</h3>
+                            <div class="block-form">
+                                <select id="service-category-filter" class="form-control" onchange="filterServicesByCategory()">
+                                    <option value="all">All Services</option>
+                                    <option value="compute">Compute (EC2, Lambda, ECS)</option>
+                                    <option value="storage">Storage (S3, EBS, EFS)</option>
+                                    <option value="database">Database (RDS, DynamoDB)</option>
+                                    <option value="networking">Networking (VPC, CloudFront)</option>
+                                    <option value="ai-ml">AI/ML (Bedrock, SageMaker)</option>
+                                    <option value="analytics">Analytics (Athena, Glue)</option>
+                                    <option value="security">Security (IAM, KMS, WAF)</option>
+                                    <option value="management">Management (CloudWatch, Config)</option>
+                                </select>
+                                <select id="time-period-filter" class="form-control" onchange="changeTimePeriod()">
+                                    <option value="7d">Last 7 Days</option>
+                                    <option value="30d" selected>Last 30 Days</option>
+                                    <option value="90d">Last 90 Days</option>
+                                    <option value="12m">Last 12 Months</option>
+                                </select>
+                                <button onclick="exportAWSCostsData()" class="btn btn-select-user">
+                                    Export Data
+                                </button>
                             </div>
                         </div>
                     </div>
