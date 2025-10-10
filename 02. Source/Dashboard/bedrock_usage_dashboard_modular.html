@@ -1795,38 +1795,6 @@
                     </div>
                 </div>
                 
-                <!-- Service Filters Row -->
-                <div class="card" style="margin-bottom: 2rem;">
-                    <h2>Service Filters & Controls</h2>
-                    <div class="admin-controls">
-                        <div class="blocking-controls">
-                            <h3>Filter AWS Services</h3>
-                            <div class="block-form">
-                                <select id="service-category-filter" class="form-control" onchange="filterServicesByCategory()">
-                                    <option value="all">All Services</option>
-                                    <option value="compute">Compute (EC2, Lambda, ECS)</option>
-                                    <option value="storage">Storage (S3, EBS, EFS)</option>
-                                    <option value="database">Database (RDS, DynamoDB)</option>
-                                    <option value="networking">Networking (VPC, CloudFront)</option>
-                                    <option value="ai-ml">AI/ML (Bedrock, SageMaker)</option>
-                                    <option value="analytics">Analytics (Athena, Glue)</option>
-                                    <option value="security">Security (IAM, KMS, WAF)</option>
-                                    <option value="management">Management (CloudWatch, Config)</option>
-                                </select>
-                                <select id="time-period-filter" class="form-control" onchange="changeTimePeriod()">
-                                    <option value="7d">Last 7 Days</option>
-                                    <option value="30d" selected>Last 30 Days</option>
-                                    <option value="90d">Last 90 Days</option>
-                                    <option value="12m">Last 12 Months</option>
-                                </select>
-                                <button onclick="exportAWSCostsData()" class="btn btn-select-user">
-                                    Export Data
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
                 <!-- Top Services by Cost -->
                 <div class="card" style="margin-top: 20px; position: relative;">
                     <h2>Top AWS Services by Cost - Last 30 Days</h2>
