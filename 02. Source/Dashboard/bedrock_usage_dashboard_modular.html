@@ -1968,51 +1968,6 @@
                     </div>
                 </div>
                 
-                <!-- Budget Alerts and Thresholds -->
-                <div class="card" style="margin-top: 20px; position: relative;">
-                    <h2>Budget Alerts & Thresholds</h2>
-                    <button class="export-button" onclick="exportBudgetAlertsTable()" title="Export to CSV">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                        </svg>
-                        Export
-                    </button>
-                    <div class="admin-controls" style="margin-bottom: 2rem;">
-                        <div class="blocking-controls">
-                            <h3>Configure Budget Alerts</h3>
-                            <div class="block-form">
-                                <input type="number" id="monthly-budget" class="form-control" placeholder="Monthly Budget ($)" value="1000">
-                                <input type="number" id="warning-threshold" class="form-control" placeholder="Warning Threshold (%)" value="80">
-                                <input type="number" id="critical-threshold" class="form-control" placeholder="Critical Threshold (%)" value="95">
-                                <button onclick="updateBudgetThresholds()" class="btn btn-select-user">
-                                    Update Thresholds
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <table id="budget-alerts-table">
-                        <thead>
-                            <tr>
-                                <th>Budget Name</th>
-                                <th>Budget Amount</th>
-                                <th>Current Spend</th>
-                                <th>% Used</th>
-                                <th>Remaining</th>
-                                <th>Forecast</th>
-                                <th>Status</th>
-                                <th>Next Alert</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td colspan="8">
-                                    <div class="loading-spinner"></div>
-                                    Loading budget information...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
             </div>
         </div>
     </div>
