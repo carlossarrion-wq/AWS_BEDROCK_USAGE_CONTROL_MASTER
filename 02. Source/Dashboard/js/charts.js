@@ -1380,6 +1380,128 @@ function calculateCorrelationTrendLine(data) {
     ];
 }
 
+// NEW: Function to update user agent chart
+function updateUserAgentChart(userAgentData) {
+    const canvas = document.getElementById('user-agent-chart');
+    if (!canvas) {
+        console.warn('⚠️ Canvas element user-agent-chart not found, skipping chart update');
+        return;
+    }
+    
+    console.log('📊 Updating user agent chart with data:', userAgentData);
+    
+    // Sort by count descending and take top 10
+    const sortedData = Object.entries(userAgentData)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 10);
+    
+    const labels = sortedData.map(([agent]) => {
+        // Truncate long user agent names for display
+        return agent.length > 20 ? agent.substring(0, 17) + '...' : agent;
+    });
+    
+    const values = sortedData.map(([, count]) => count);
+    
+    // Define color palette (matching the soft green theme)
+    const colorPalette = [
+        { bg: 'rgba(168, 213, 186, 0.8)', border: 'rgba(129, 199, 132, 1)' },
+        { bg: 'rgba(129, 199, 132, 0.8)', border: 'rgba(100, 180, 110, 1)' },
+        { bg: 'rgba(200, 230, 201, 0.8)', border: 'rgba(168, 213, 186, 1)' },
+        { bg: 'rgba(76, 175, 80, 0.8)', border: 'rgba(56, 142, 60, 1)' },
+        { bg: 'rgba(102, 187, 106, 0.8)', border: 'rgba(76, 175, 80, 1)' },
+        { bg: 'rgba(139, 195, 74, 0.8)', border: 'rgba(104, 159, 56, 1)' },
+        { bg: 'rgba(174, 213, 129, 0.8)', border: 'rgba(139, 195, 74, 1)' },
+        { bg: 'rgba(220, 237, 200, 0.8)', border: 'rgba(174, 213, 129, 1)' },
+        { bg: 'rgba(241, 248, 233, 0.8)', border: 'rgba(220, 237, 200, 1)' },
+        { bg: 'rgba(192, 192, 192, 0.8)', border: 'rgba(160, 160, 160, 1)' }
+    ];
+    
+    const chartData = {
+        labels: labels,
+        datasets: [{
+            label: 'Requests',
+            data: values,
+            backgroundColor: values.map((_, index) => colorPalette[index % colorPalette.length].bg),
+            borderColor: values.map((_, index) => colorPalette[index % colorPalette.length].border),
+            borderWidth: 2
+        }]
+    };
+    
+    if (window.userAgentChart) {
+        window.userAgentChart.data = chartData;
+        window.userAgentChart.update();
+    } else {
+        try {
+            window.userAgentChart = new Chart(canvas, {
+                type: 'bar',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y', // Horizontal bar chart
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        title: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: function(context) {
+                                    // Show full user agent name in tooltip
+                                    const fullName = sortedData[context[0].dataIndex][0];
+                                    return `User Agent: ${fullName}`;
+                                },
+                                label: function(context) {
+                                    return `Requests: ${context.parsed.x.toLocaleString()}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Requests',
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'User Agent',
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+            console.log('✅ User agent chart created successfully');
+        } catch (error) {
+            console.error('❌ Error creating user agent chart:', error);
+        }
+    }
+}
+
 // NEW: Function to update model consumption evolution chart
 function updateModelConsumptionEvolutionChart(modelData) {
     const canvas = document.getElementById('model-consumption-evolution-chart');

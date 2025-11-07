@@ -429,6 +429,58 @@ table tr.weekend td {
     cursor: not-allowed;
 }
 
+/* Active Users Modal - Clean Table Format */
+.active-users-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.active-users-table thead th {
+    background-color: #f8f9fa;
+    color: #2d3748;
+    padding: 12px 15px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.active-users-table thead th:last-child {
+    text-align: right;
+}
+
+.active-users-table tbody tr {
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.active-users-table tbody tr:hover {
+    background-color: #f7fafc;
+}
+
+.active-users-table tbody td {
+    padding: 12px 15px;
+    font-size: 14px;
+    color: #2d3748;
+}
+
+.active-users-table tbody td:first-child {
+    color: #4a5568;
+    font-size: 13px;
+}
+
+.active-users-table tbody td:nth-child(2) {
+    font-weight: 500;
+    color: #1e4a72;
+}
+
+.active-users-table tbody td:last-child {
+    text-align: right;
+    font-weight: 600;
+    color: #2d5aa0;
+}
+
 /* Export button styles */
 .export-button {
     position: absolute;

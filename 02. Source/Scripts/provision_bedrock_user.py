@@ -8,11 +8,39 @@ conventions, and creates all required resources if they don't already exist.
 If the user doesn't exist, it will be created and associated to the indicated group.
 
 Usage:
-    python3 provision_bedrock_user.py --username <username> [--group <group_name>]
+    python3 provision_bedrock_user.py --username <username> [--group <group_name>] [--email <email>] [--person <person_name>] [--create-access-key]
+
+Parameters:
+    --username: (required) The IAM username to provision
+    --group: (optional) The IAM group to associate the user with (required if user doesn't exist)
+    --email: (optional) Email address of the user (stored as IAM tag 'Email')
+    --person: (optional) Physical person name (stored as IAM tag 'Person')
+    --create-access-key: (optional) Create AWS access key credentials and save to file
 
 Examples:
+    # Provision existing user
     python3 provision_bedrock_user.py --username yo_leo_gas_001
+    
+    # Create new user with group
     python3 provision_bedrock_user.py --username new_user --group team_mulesoft_group
+    
+    # Create new user with email and person tags
+    python3 provision_bedrock_user.py --username new_user --group team_mulesoft_group --email user@example.com --person "John Doe"
+    
+    # Create new user with access key credentials
+    python3 provision_bedrock_user.py --username new_user --group team_mulesoft_group --email user@example.com --person "John Doe" --create-access-key
+    
+    # Update tags for existing user
+    python3 provision_bedrock_user.py --username existing_user --email newemail@example.com --person "Jane Smith"
+    
+    # Create access key for existing user
+    python3 provision_bedrock_user.py --username existing_user --create-access-key
+
+Note:
+    - Access key credentials are saved to a file named: <username>_<email>_credentials.json (if email is provided)
+      or <username>_credentials.json (if no email is provided)
+    - The Secret Access Key is only displayed once and cannot be retrieved again
+    - AWS allows a maximum of 2 access keys per user
 """
 
 import argparse
@@ -41,12 +69,36 @@ logs_client = boto3.client('logs', region_name=REGION)
 cloudwatch_client = boto3.client('cloudwatch', region_name=REGION)
 lambda_client = boto3.client('lambda', region_name=REGION)
 
+def normalize_email(email):
+    """Normalize email address to lowercase."""
+    if email:
+        return email.lower().strip()
+    return email
+
+def normalize_person(person):
+    """Normalize person name to title case (first letter of each word capitalized)."""
+    if person:
+        return person.strip().title()
+    return person
+
 def parse_arguments():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description='Provision AWS resources for Bedrock usage tracking.')
     parser.add_argument('--username', required=True, help='The username to provision resources for')
     parser.add_argument('--group', help='The group to associate the user with (required if user does not exist)')
-    return parser.parse_args()
+    parser.add_argument('--email', help='Email address of the user (will be stored as IAM tag)')
+    parser.add_argument('--person', help='Physical person name (will be stored as IAM tag)')
+    parser.add_argument('--create-access-key', action='store_true', help='Create access key credentials and save to file')
+    
+    args = parser.parse_args()
+    
+    # Normalize email and person
+    if args.email:
+        args.email = normalize_email(args.email)
+    if args.person:
+        args.person = normalize_person(args.person)
+    
+    return args
 
 def load_quota_config():
     """Load the quota configuration from the JSON file."""
@@ -57,8 +109,8 @@ def load_quota_config():
         print(f"Error loading quota configuration: {str(e)}")
         return {"users": {}, "teams": {}}
 
-def create_user(username, group_name=None):
-    """Create a new IAM user and optionally add to a group."""
+def create_user(username, group_name=None, email=None, person=None):
+    """Create a new IAM user and optionally add to a group with tags."""
     try:
         # Check if user already exists
         try:
@@ -71,21 +123,31 @@ def create_user(username, group_name=None):
                 print(f"Creating new IAM user: {username}")
                 iam_client.create_user(UserName=username)
                 
-                # Add Person tag with value "Unknown"
-                try:
-                    iam_client.tag_user(
-                        UserName=username,
-                        Tags=[
-                            {
-                                'Key': 'Person',
-                                'Value': 'Unknown'
-                            }
-                        ]
-                    )
-                    print(f"Added Person tag with value 'Unknown' to user {username}")
-                except ClientError as tag_error:
-                    print(f"Warning: Could not add Person tag to user: {str(tag_error)}")
-                    print("Continuing with user provisioning...")
+                # Add Person and Email tags
+                tags_to_add = []
+                
+                # Add Person tag
+                if person:
+                    tags_to_add.append({'Key': 'Person', 'Value': person})
+                else:
+                    tags_to_add.append({'Key': 'Person', 'Value': 'Unknown'})
+                
+                # Add Email tag if provided
+                if email:
+                    tags_to_add.append({'Key': 'Email', 'Value': email})
+                
+                # Apply tags to user
+                if tags_to_add:
+                    try:
+                        iam_client.tag_user(
+                            UserName=username,
+                            Tags=tags_to_add
+                        )
+                        for tag in tags_to_add:
+                            print(f"Added {tag['Key']} tag with value '{tag['Value']}' to user {username}")
+                    except ClientError as tag_error:
+                        print(f"Warning: Could not add tags to user: {str(tag_error)}")
+                        print("Continuing with user provisioning...")
                 
                 user_exists = False
             else:
@@ -709,6 +771,131 @@ def verify_lambda_function():
             print(f"Error verifying Lambda function: {str(e)}")
             return False
 
+def update_user_tags(username, email=None, person=None):
+    """Update Email and Person tags for an existing user."""
+    try:
+        # Get current tags
+        response = iam_client.list_user_tags(UserName=username)
+        current_tags = {tag['Key']: tag['Value'] for tag in response['Tags']}
+        
+        tags_to_update = []
+        
+        # Update Email tag if provided
+        if email:
+            if current_tags.get('Email') != email:
+                tags_to_update.append({'Key': 'Email', 'Value': email})
+                print(f"Will update Email tag to '{email}'")
+            else:
+                print(f"Email tag already set to '{email}'")
+        
+        # Update Person tag if provided
+        if person:
+            if current_tags.get('Person') != person:
+                tags_to_update.append({'Key': 'Person', 'Value': person})
+                print(f"Will update Person tag to '{person}'")
+            else:
+                print(f"Person tag already set to '{person}'")
+        
+        # Apply tag updates if any
+        if tags_to_update:
+            iam_client.tag_user(
+                UserName=username,
+                Tags=tags_to_update
+            )
+            for tag in tags_to_update:
+                print(f"✅ Updated {tag['Key']} tag to '{tag['Value']}' for user {username}")
+            return True
+        else:
+            print("No tag updates needed")
+            return True
+            
+    except ClientError as e:
+        print(f"Error updating user tags: {str(e)}")
+        return False
+
+def create_access_key(username, email=None):
+    """Create access key credentials for the user and save to file."""
+    try:
+        # Check if user already has access keys
+        response = iam_client.list_access_keys(UserName=username)
+        existing_keys = response.get('AccessKeyMetadata', [])
+        
+        # AWS allows maximum 2 access keys per user
+        if len(existing_keys) >= 2:
+            print(f"Warning: User {username} already has {len(existing_keys)} access keys (maximum allowed).")
+            print("Existing access keys:")
+            for key in existing_keys:
+                print(f"  - {key['AccessKeyId']} (Status: {key['Status']}, Created: {key['CreateDate']})")
+            print("\nTo create a new access key, you must first delete an existing one.")
+            return None
+        
+        # Create new access key
+        print(f"Creating access key for user {username}...")
+        response = iam_client.create_access_key(UserName=username)
+        access_key = response['AccessKey']
+        
+        access_key_id = access_key['AccessKeyId']
+        secret_access_key = access_key['SecretAccessKey']
+        
+        print(f"✅ Access key created successfully: {access_key_id}")
+        
+        # Get email from user tags if not provided
+        if not email:
+            try:
+                tags_response = iam_client.list_user_tags(UserName=username)
+                user_tags = {tag['Key']: tag['Value'] for tag in tags_response['Tags']}
+                email = user_tags.get('Email')
+            except ClientError:
+                pass
+        
+        # Prepare credentials data
+        credentials = {
+            'UserName': username,
+            'AccessKeyId': access_key_id,
+            'SecretAccessKey': secret_access_key,
+            'CreateDate': access_key['CreateDate'].strftime('%Y-%m-%d %H:%M:%S UTC'),
+            'Status': access_key['Status']
+        }
+        
+        # Add email to credentials if available
+        if email:
+            credentials['Email'] = email
+        
+        # Build filename: username + email (if available)
+        if email:
+            # Sanitize email for filename (replace @ and . with _)
+            sanitized_email = email.replace('@', '_').replace('.', '_')
+            filename = f"{username}_{sanitized_email}_credentials.json"
+        else:
+            filename = f"{username}_credentials.json"
+        try:
+            with open(filename, 'w') as f:
+                json.dump(credentials, f, indent=2)
+            print(f"✅ Credentials saved to file: {filename}")
+            print(f"\n{'='*60}")
+            print("IMPORTANT: Keep these credentials secure!")
+            print(f"{'='*60}")
+            print(f"Access Key ID:     {access_key_id}")
+            print(f"Secret Access Key: {secret_access_key}")
+            print(f"{'='*60}")
+            print(f"\nCredentials have been saved to: {filename}")
+            print("This is the ONLY time the Secret Access Key will be displayed.")
+            print("Store it securely - you won't be able to retrieve it again.")
+            print(f"{'='*60}\n")
+            
+            return credentials
+            
+        except Exception as e:
+            print(f"Error saving credentials to file: {str(e)}")
+            print(f"\nAccess Key ID:     {access_key_id}")
+            print(f"Secret Access Key: {secret_access_key}")
+            print("\nPlease save these credentials manually - they won't be shown again!")
+            return credentials
+            
+    except ClientError as e:
+        print(f"Error creating access key for user {username}: {str(e)}")
+        return None
+
 def main():
     """Main function."""
     args = parse_arguments()
@@ -740,7 +927,7 @@ def main():
             return 1
         
         # Create the user and add to group
-        groups = create_user(username, specified_group)
+        groups = create_user(username, specified_group, args.email, args.person)
         if not groups and specified_group:
             # If user creation returned empty groups but we know the group exists,
             # try to add the user to the group directly
@@ -788,8 +975,14 @@ def main():
         else:
             return 1
     
-    # Step 2.5: Ensure user has correct Team tag (CRITICAL for Lambda function)
-    print(f"\nStep 2.5: Ensuring user {username} has correct Team tag...")
+    # Step 2.5: Update Email and Person tags if provided
+    if args.email or args.person:
+        print(f"\nStep 2.5: Updating Email and Person tags for user {username}...")
+        if not update_user_tags(username, args.email, args.person):
+            print("Warning: Failed to update Email/Person tags. Continuing anyway...")
+    
+    # Step 2.6: Ensure user has correct Team tag (CRITICAL for Lambda function)
+    print(f"\nStep 2.6: Ensuring user {username} has correct Team tag...")
     try:
         # Check current tags
         response = iam_client.list_user_tags(UserName=username)
@@ -868,6 +1061,13 @@ def main():
     print("\nStep 10: Verifying Lambda function...")
     if not verify_lambda_function():
         print("Warning: Lambda function verification failed. Continuing anyway...")
+    
+    # Step 11: Create access key if requested
+    if args.create_access_key:
+        print(f"\nStep 11: Creating access key credentials for user {username}...")
+        credentials = create_access_key(username, args.email)
+        if not credentials:
+            print("Warning: Failed to create access key. User provisioning completed without access key.")
     
     print("\nProvisioning completed successfully!")
     print(f"User {username} is now set up for Bedrock usage tracking.")
