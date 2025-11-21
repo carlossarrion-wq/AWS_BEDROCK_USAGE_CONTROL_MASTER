@@ -14,7 +14,7 @@ const ALL_TEAMS = [
     'team_sap_group',
     'team_mulesoft_group',
     'team_yo_leo_gas_group',
-    'team_lcorp_group'
+    'team_saplcorp_group'
 ];
 
 // Bedrock Services for cost analysis
@@ -136,7 +136,7 @@ const DEFAULT_QUOTA_CONFIG = {
             warning_threshold: 60,
             critical_threshold: 85
         },
-        "team_lcorp_group": {
+        "team_saplcorp_group": {
             monthly_limit: 25000,
             warning_threshold: 60,
             critical_threshold: 85

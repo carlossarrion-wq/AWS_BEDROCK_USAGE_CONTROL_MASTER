@@ -770,7 +770,7 @@ class BedrockMySQLDataService {
                         "warning_threshold": 60,
                         "critical_threshold": 85
                     },
-                    "team_lcorp_group": {
+                    "team_saplcorp_group": {
                         "monthly_limit": 25000,
                         "warning_threshold": 60,
                         "critical_threshold": 85
